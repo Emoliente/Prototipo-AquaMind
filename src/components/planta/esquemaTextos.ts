@@ -57,7 +57,7 @@ export function frasePurga(planta: EstadoPlanta): Frase {
   return { texto: 'Ninguna nave purgando' };
 }
 
-/** El bombeo de la quebrada, en una frase. */
+/** El bombeo en el embalse (lejos del desarenador), en una frase. */
 export function fraseBombeo(planta: EstadoPlanta): Frase {
   const falla = planta.bombas.find((b) => b.estado === 'falla');
   if (falla) return { texto: `Bomba ${falla.id.slice(1)} en falla: revisar`, atencion: true };
@@ -67,8 +67,8 @@ export function fraseBombeo(planta: EstadoPlanta): Frase {
     const cuales = enMarcha.map((b) => `B${b.id.slice(1)}`).join(' y ');
     return { texto: resta > 0 ? `Bombeando con ${cuales} · faltan ${formatoDuracion(resta)}` : `Bombeando con ${cuales}` };
   }
-  if (valido(planta.quebradaM3) && planta.quebradaM3 >= 1) return { texto: 'Lodo en la quebrada esperando bombeo' };
-  return { texto: 'Bombas en espera: la quebrada está vacía' };
+  if (valido(planta.quebradaM3) && planta.quebradaM3 >= 1) return { texto: 'Lodo en el embalse esperando bombeo' };
+  return { texto: 'Bombas en espera: no hay lodo en el embalse' };
 }
 
 /** Cuánto sedimento trae el agua: anticipa si las naves se llenan más rápido. */
@@ -79,10 +79,10 @@ export function fraseSedimento(sstGL: number): Frase {
   return { texto: 'Entra agua muy cargada: las naves se llenan rápido', atencion: true };
 }
 
-/** "350 m³ por bombear" o "Vacía". */
-export function textoQuebrada(m3: number): string {
-  if (!valido(m3)) return 'Sin dato';
-  return m3 < 1 ? 'Vacía' : `${formatoNumero(m3)} m³ por bombear`;
+/** Lodo que llegó al embalse y espera a las bombas: "350 m³ de lodo por bombear". */
+export function textoEmbalse(m3: number): string {
+  if (!valido(m3)) return 'Sin dato de lodo';
+  return m3 < 1 ? 'Sin lodo por bombear' : `${formatoNumero(m3)} m³ de lodo por bombear`;
 }
 
 /** Estado de una bomba, corto: para su rótulo bajo el ícono. */

@@ -1,15 +1,15 @@
 import { memo, useId } from 'react';
-import { ArrowDown, ArrowDownToLine, ChevronRight, Droplets, Fan } from 'lucide-react';
+import { ArrowDown, ArrowDownToLine, ChevronRight, Droplets, Fan, Waves } from 'lucide-react';
 import type { EstadoPlanta } from '@/data/DataSource';
 import type { NaveId } from '@/types/dominio';
 import type { TipoEstado } from '@/components/ui/EstadoChip';
 import { cn } from '@/lib/cn';
 import { EstadoChip } from '@/components/ui/EstadoChip';
-import { ESCALA_CM, ESTADO_BOMBA, estadoNave, fraseBombeo, frasePurga, fraseSedimento, textoQuebrada, valido, type Frase } from './esquemaTextos';
+import { ESCALA_CM, ESTADO_BOMBA, estadoNave, fraseBombeo, frasePurga, fraseSedimento, textoEmbalse, valido, type Frase } from './esquemaTextos';
 
 /*
  * El esquema en vivo para pantallas angostas: el mismo recorrido, de arriba abajo
- * (entrada → naves → quebrada y bombas), sin tener que deslizar de costado.
+ * (entrada → naves → quebrada → embalse y sus bombas), sin tener que deslizar de costado.
  */
 
 /** Corte pequeño de una nave: agua arriba, lodo abajo y la línea del nivel crítico. */
@@ -130,7 +130,7 @@ export function EsquemaCompacto({
   });
 
   return (
-    <div className="flex flex-col gap-3 px-4 py-4" role="group" aria-label="Esquema del desarenador, de la entrada a las bombas">
+    <div className="flex flex-col gap-3 px-4 py-4" role="group" aria-label="Esquema del desarenador, de la entrada al embalse donde están las bombas">
       <ul className="flex flex-col gap-2.5">
         <Fila icono={Droplets} frase={fraseSedimento(planta.sstEntradaGL)} />
       </ul>
@@ -141,12 +141,16 @@ export function EsquemaCompacto({
         ))}
       </div>
       <Flecha />
+      <ul className="flex flex-col gap-2.5">
+        <Fila icono={Waves} frase={{ texto: 'La quebrada lleva el lodo purgado lejos, hasta el embalse' }} />
+      </ul>
+      <Flecha />
       <div className="flex flex-col gap-2.5 rounded-card border border-line px-3 py-3">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-body font-semibold text-fg">Quebrada</span>
-          <span className="text-label text-fg-muted">{textoQuebrada(quebrada)}</span>
+          <span className="text-body font-semibold text-fg">Embalse</span>
+          <span className="text-label text-fg-muted">{textoEmbalse(quebrada)}</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`Quebrada al ${Math.round(Math.min(1, quebrada / capacidad) * 100)} % de su capacidad`}>
+        <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`Lodo en el embalse al ${Math.round(Math.min(1, quebrada / capacidad) * 100)} % de su capacidad`}>
           <div className="h-full rounded-full bg-sludge transition-[width] duration-500" style={{ width: `${Math.max(2, Math.min(1, quebrada / capacidad) * 100)}%` }} />
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1.5">

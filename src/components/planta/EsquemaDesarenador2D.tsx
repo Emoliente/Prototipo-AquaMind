@@ -9,37 +9,58 @@ import { EstadoChip } from '@/components/ui/EstadoChip';
 import { useEnVista } from '@/lib/useEnVista';
 import { aPaso } from '@/lib/movimiento';
 import { FlujoCapa, type Lienzo } from './CapasAnimadas';
-import { ESCALA_CM, ESTADO_BOMBA, estadoNave, fraseBombeo, frasePurga, fraseSedimento, textoQuebrada, valido, type Frase } from './esquemaTextos';
+import { ESCALA_CM, ESTADO_BOMBA, estadoNave, fraseBombeo, frasePurga, fraseSedimento, textoEmbalse, valido, type Frase } from './esquemaTextos';
 
 /*
  * Esquema del desarenador: el agua entra por la izquierda, cruza las 3 naves (cada una
  * dibujada en corte: agua arriba, lodo asentado abajo) y sale limpia por arriba a la derecha.
- * El lodo baja por la compuerta de cada nave a la galería, llega a la quebrada y las bombas
- * lo evacúan. Pocos números: el dibujo cuenta qué pasa; las tarjetas de abajo dan el detalle.
+ * El lodo baja por la compuerta de cada nave a la galería y la quebrada lo lleva hasta el
+ * embalse, lejos del desarenador, donde las bombas lo evacúan. Pocos números: el dibujo cuenta
+ * qué pasa; las tarjetas de abajo dan el detalle.
  */
 const W = 1120;
-const H = 492;
+const H = 500;
 const NAVE_X0 = 156;
-const NAVE_X1 = 760;
+const NAVE_X1 = 736;
 const NAVE_H = 112;
 const NAVE_Y = [20, 146, 272];
 const ENTRADA_X1 = 118;
 const ENTRADA_H = 64;
 const ENTRADA_Y = (NAVE_Y[0] + NAVE_Y[2] + NAVE_H) / 2 - ENTRADA_H / 2;
-const COLECTOR_X = 766;
+/** Compuerta de purga: marco fuera de la nave, al pie de su pared de salida. */
+const COMPUERTA_X = NAVE_X1 + 7; // separada del borde resaltado de la nave
+const COMPUERTA_W = 22;
+const COLECTOR_X = 772;
 const COLECTOR_W = 30;
 const SALIDA_H = 30;
-const GALERIA_X = 818;
-const Q_X0 = 440;
-const Q_X1 = 1108;
-const Q_Y0 = 404;
-const Q_Y1 = 458;
-const BOMBAS_X = [760, 880, 1000];
+const GALERIA_X = 828;
+const DERECHA_X1 = 1108;
+/** Embalse (lejos del desarenador): ahí llega el lodo y están las bombas. */
+const EMB_X0 = 16;
+const EMB_X1 = 620;
+const EMB_Y0 = 410;
+const EMB_Y1 = 464;
+/** La quebrada corre de la galería al embalse; el corte marca que es un tramo largo. */
+const QUEBRADA_Y = (EMB_Y0 + EMB_Y1) / 2;
+const CORTE_X = 720;
+const BOMBAS_X = [310, 430, 550];
 const CAPACIDAD_QUEBRADA = 3000;
+
+/** Quebrada a ambos lados del corte, de la galería hacia el embalse (los guiones avanzan en ese sentido). */
+const TRAMOS_QUEBRADA = [
+  `M${GALERIA_X},${QUEBRADA_Y} C${GALERIA_X - 24},${QUEBRADA_Y - 10} ${GALERIA_X - 46},${QUEBRADA_Y + 10} ${GALERIA_X - 70},${QUEBRADA_Y} S${CORTE_X + 34},${QUEBRADA_Y - 8} ${CORTE_X + 12},${QUEBRADA_Y}`,
+  `M${CORTE_X - 12},${QUEBRADA_Y} C${CORTE_X - 34},${QUEBRADA_Y + 8} ${CORTE_X - 56},${QUEBRADA_Y - 10} ${CORTE_X - 78},${QUEBRADA_Y} S${EMB_X1 + 10},${QUEBRADA_Y + 6} ${EMB_X1},${QUEBRADA_Y}`,
+];
 
 const LIENZO: Lienzo = { w: W, h: H };
 const fondoNave = (y: number) => y + NAVE_H;
-const yTubo = (y: number) => fondoNave(y) - 14;
+/**
+ * Hueco máximo de la compuerta (100 cm). Se dibuja 1.5 veces más alto que a escala: abrir
+ * 20 cm serían 6 px y no se notaría. Las aperturas siguen proporcionales entre sí.
+ */
+const HUECO = (100 / ESCALA_CM) * NAVE_H * 1.5;
+/** El tubo de purga sale a ras del piso de la nave, por donde pasa el lodo. */
+const yTubo = (y: number) => fondoNave(y) - 7;
 
 /** Altura de una capa de lodo en el corte (el tanque completo son 400 cm). */
 const altoLodo = (cm: number) => Math.min(NAVE_H - 4, Math.max(0, (cm / ESCALA_CM) * NAVE_H));
@@ -125,7 +146,15 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         </defs>
         <rect x={0} y={ENTRADA_Y} width={ENTRADA_X1} height={ENTRADA_H} rx={4} fill={`url(#aguaH${uid})`} />
         <path d={`M${ENTRADA_X1},${ENTRADA_Y} L${NAVE_X0},${NAVE_Y[0]} L${NAVE_X0},${fondoNave(NAVE_Y[2])} L${ENTRADA_X1},${ENTRADA_Y + ENTRADA_H} Z`} fill="var(--water)" fillOpacity={0.55} />
-        <rect x={COLECTOR_X} y={NAVE_Y[0]} width={COLECTOR_W} height={fondoNave(NAVE_Y[2]) - NAVE_Y[0]} rx={4} fill="var(--water)" fillOpacity={0.5} />
+        {/* Tubos de purga y galería: van bajo el canal de agua limpia, que se dibuja encima */}
+        {naves.map((n, i) => (
+          <line key={n.id} x1={COMPUERTA_X + COMPUERTA_W} x2={GALERIA_X} y1={yTubo(NAVE_Y[i])} y2={yTubo(NAVE_Y[i])} stroke="var(--line-strong)" strokeWidth={10} strokeLinecap="round" opacity={0.45} />
+        ))}
+        <line x1={GALERIA_X} x2={GALERIA_X} y1={yTubo(NAVE_Y[0])} y2={QUEBRADA_Y} stroke="var(--line-strong)" strokeWidth={10} strokeLinecap="round" opacity={0.45} />
+        {TRAMOS_QUEBRADA.map((d) => (
+          <path key={d} d={d} fill="none" stroke="var(--water)" strokeOpacity={0.55} strokeWidth={14} strokeLinecap="round" />
+        ))}
+        <rect x={COLECTOR_X} y={NAVE_Y[0]} width={COLECTOR_W} height={fondoNave(NAVE_Y[2]) - NAVE_Y[0]} rx={4} fill="var(--water)" fillOpacity={0.55} />
         <rect x={COLECTOR_X} y={NAVE_Y[0]} width={W - COLECTOR_X} height={SALIDA_H} rx={4} fill={`url(#aguaH${uid})`} />
         {naves.map((n, i) => (
           <g key={n.id}>
@@ -144,7 +173,7 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         viewBox={`0 0 ${W} ${H}`}
         className="absolute inset-0 h-full w-full"
         role="group"
-        aria-label="Esquema del desarenador: entrada, tres naves con su lodo, compuertas de purga, quebrada y bombas"
+        aria-label="Esquema del desarenador: entrada, tres naves con su lodo y compuertas de purga; la quebrada lleva el lodo al embalse, donde están las bombas"
       >
         <defs>
           <linearGradient id={`lodo${uid}`} x1="0" x2="0" y1="0" y2="1">
@@ -169,22 +198,31 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
           </span>
         </Rotulo>
 
-        {/* Galería de purga: baja de las compuertas a la quebrada */}
-        <line x1={GALERIA_X} x2={GALERIA_X} y1={yTubo(NAVE_Y[0])} y2={Q_Y0} stroke="var(--line-strong)" strokeWidth={8} strokeLinecap="round" opacity={0.5} />
-        {hayPurga && (
-          <line
-            x1={GALERIA_X}
-            x2={GALERIA_X}
-            y1={yTubo(NAVE_Y[0])}
-            y2={Q_Y0}
-            stroke="var(--sludge-top)"
-            strokeWidth={5}
-            strokeDasharray="8 10"
-            strokeLinecap="round"
-            className="anim-flujo"
-            style={{ animationDuration: '1s', animationPlayState: pausa }}
-          />
-        )}
+        {/* Galería de purga y quebrada: el lodo baja de las compuertas y viaja al embalse (los cauces vacíos están en el fondo) */}
+        {hayPurga &&
+          [`M${GALERIA_X},${yTubo(NAVE_Y[0])} V${QUEBRADA_Y}`, ...TRAMOS_QUEBRADA].map((d) => (
+            <path
+              key={d}
+              d={d}
+              fill="none"
+              stroke="var(--sludge-top)"
+              strokeWidth={5}
+              strokeDasharray="8 10"
+              strokeLinecap="round"
+              className="anim-flujo"
+              style={{ animationDuration: '1s', animationPlayState: pausa }}
+            />
+          ))}
+        {/* Corte de la quebrada: el embalse queda lejos, el dibujo no está a escala */}
+        {[CORTE_X - 6, CORTE_X + 6].map((x) => (
+          <line key={x} x1={x - 6} x2={x + 6} y1={QUEBRADA_Y + 15} y2={QUEBRADA_Y - 15} stroke="var(--fg-subtle)" strokeWidth={2} strokeLinecap="round" />
+        ))}
+        <Rotulo x={EMB_X1 + 16} y={QUEBRADA_Y + 14} w={GALERIA_X - EMB_X1 - 4} h={H - QUEBRADA_Y - 14}>
+          <div className="flex flex-col leading-tight">
+            <span className="text-label font-semibold text-fg">Quebrada</span>
+            <span className="text-[0.75rem] text-fg-muted">lleva el lodo lejos, al embalse</span>
+          </div>
+        </Rotulo>
 
         {naves.map((n, i) => {
           const e = estadoNave(planta, n);
@@ -214,27 +252,27 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         {/* Ahora mismo: lo que está pasando, en frases */}
         <AhoraMismo purga={frasePurga(planta)} bombeo={fraseBombeo(planta)} sedimento={fraseSedimento(planta.sstEntradaGL)} />
 
-        {/* Quebrada */}
-        <rect x={Q_X0} y={Q_Y0} width={Q_X1 - Q_X0} height={Q_Y1 - Q_Y0} rx={14} fill="var(--surface-2)" stroke="var(--line-strong)" strokeWidth={2} />
+        {/* Embalse: el lodo que llega por la quebrada espera aquí a las bombas (borde punteado: es otro sitio) */}
+        <rect x={EMB_X0} y={EMB_Y0} width={EMB_X1 - EMB_X0} height={EMB_Y1 - EMB_Y0} rx={14} fill="var(--surface-2)" stroke="var(--line-strong)" strokeWidth={2} strokeDasharray="8 6" />
         <clipPath id={`q${uid}`}>
-          <rect x={Q_X0 + 2} y={Q_Y0 + 2} width={Q_X1 - Q_X0 - 4} height={Q_Y1 - Q_Y0 - 4} rx={12} />
+          <rect x={EMB_X0 + 2} y={EMB_Y0 + 2} width={EMB_X1 - EMB_X0 - 4} height={EMB_Y1 - EMB_Y0 - 4} rx={12} />
         </clipPath>
         <g clipPath={`url(#q${uid})`}>
           <motion.rect
-            x={Q_X0}
-            width={Q_X1 - Q_X0}
-            height={Q_Y1 - Q_Y0}
+            x={EMB_X0}
+            width={EMB_X1 - EMB_X0}
+            height={EMB_Y1 - EMB_Y0}
             initial={false}
-            animate={{ y: aPaso(Q_Y1 - (Q_Y1 - Q_Y0) * Math.max(0.05, qPct)) }}
+            animate={{ y: aPaso(EMB_Y1 - (EMB_Y1 - EMB_Y0) * Math.max(0.05, qPct)) }}
             transition={{ type: 'spring', stiffness: 60, damping: 18 }}
             fill={`url(#lodo${uid})`}
             opacity={0.85}
           />
         </g>
-        <Rotulo x={Q_X0 + 16} y={Q_Y0 + 8} w={300} h={Q_Y1 - Q_Y0 - 16}>
+        <Rotulo x={EMB_X0 + 16} y={EMB_Y0 + 6} w={BOMBAS_X[0] - 28 - EMB_X0 - 16} h={EMB_Y1 - EMB_Y0 - 12}>
           <div className="flex h-full flex-col justify-center leading-tight">
-            <span className="text-body font-semibold text-fg">Quebrada</span>
-            <span className="text-label text-fg-muted">{textoQuebrada(quebrada)}</span>
+            <span className="text-body font-semibold text-fg">Embalse</span>
+            <span className="text-label text-fg-muted">{textoEmbalse(quebrada)}</span>
           </div>
         </Rotulo>
         {bombas.map((b, i) => (
@@ -266,7 +304,6 @@ interface NaveProps {
 /** Una nave en corte: el agua cruza arriba, el lodo se asienta abajo y sube hacia la línea crítica. */
 const Nave = memo(function Nave({ id, nombre, y, nivelCm, criticoCm, pct, estado, texto, sinDatos, aperturaCm, destacada, rotularCritico, alSeleccionar, pausa, uid }: NaveProps) {
   const [foco, setFoco] = useState(false);
-  const abierta = aperturaCm > 0;
   const yCritico = fondoNave(y) - altoLodo(criticoCm);
   const borde = sinDatos ? 'var(--stale)' : estado === 'critica' ? 'var(--crit)' : estado === 'advertencia' ? 'var(--warn)' : 'var(--line-strong)';
   const elegir = alSeleccionar ? () => alSeleccionar(id) : undefined;
@@ -312,37 +349,6 @@ const Nave = memo(function Nave({ id, nombre, y, nivelCm, criticoCm, pct, estado
         </text>
       )}
 
-      {/* Compuerta de purga (abajo a la derecha) y su tubería a la galería */}
-      <line x1={NAVE_X1} x2={GALERIA_X} y1={yTubo(y)} y2={yTubo(y)} stroke="var(--line-strong)" strokeWidth={6} strokeLinecap="round" opacity={0.5} />
-      {abierta && (
-        <line
-          x1={NAVE_X1}
-          x2={GALERIA_X}
-          y1={yTubo(y)}
-          y2={yTubo(y)}
-          stroke="var(--sludge-top)"
-          strokeWidth={4}
-          strokeDasharray="8 10"
-          strokeLinecap="round"
-          className="anim-flujo"
-          style={{ animationDuration: '0.9s', animationPlayState: pausa }}
-        />
-      )}
-      <motion.rect
-        x={NAVE_X1 - 14}
-        width={9}
-        height={24}
-        rx={2}
-        initial={false}
-        animate={{ y: yTubo(y) - 12 - Math.min(14, aperturaCm / 4) }}
-        transition={{ type: 'spring', stiffness: 160, damping: 20 }}
-        fill="var(--surface-3)"
-        stroke={abierta ? 'var(--accent)' : 'var(--fg-subtle)'}
-        strokeWidth={2}
-      >
-        <title>{abierta ? `Compuerta abierta ${aperturaCm} cm` : 'Compuerta cerrada'}</title>
-      </motion.rect>
-
       {/* Borde de la nave (también su área para tocar) */}
       {destacada && <rect x={NAVE_X0 - 5} y={y - 5} width={NAVE_X1 - NAVE_X0 + 10} height={NAVE_H + 10} rx={16} fill="none" stroke="var(--accent)" strokeWidth={2} />}
       <rect
@@ -357,6 +363,9 @@ const Nave = memo(function Nave({ id, nombre, y, nivelCm, criticoCm, pct, estado
         strokeDasharray={sinDatos && !foco ? '6 5' : undefined}
       />
 
+      {/* Encima del borde: el lodo que sale por el hueco corta la pared de la nave */}
+      <Compuerta y={y} aperturaCm={aperturaCm} pausa={pausa} />
+
       {/* Rótulo: nombre, cuánto lodo tiene y qué hacer */}
       <Rotulo x={NAVE_X0 + 10} y={y + 7} w={480} h={34}>
         <div className="inline-flex h-full items-center gap-2.5 rounded-btn bg-surface-1/90 px-3 shadow-1">
@@ -366,9 +375,73 @@ const Nave = memo(function Nave({ id, nombre, y, nivelCm, criticoCm, pct, estado
               {pct} <span className="font-sans text-[0.75rem] font-normal text-fg-muted">% del crítico</span>
             </span>
           )}
-          <EstadoChip estado={estado} texto={texto} pulso={estado === 'critica'} />
+          <EstadoChip estado={estado} texto={aperturaCm > 0 ? `${texto} · ${aperturaCm} cm` : texto} pulso={estado === 'critica'} />
         </div>
       </Rotulo>
+    </g>
+  );
+});
+
+/**
+ * Compuerta de purga de tipo deslizante: marco con dos guías y travesaño, motor arriba y
+ * hoja con vástago que sube según la apertura. Abierta, el lodo sale por el hueco de abajo
+ * hacia la galería (cuánto está abierta lo dice el rótulo de la nave).
+ */
+const Compuerta = memo(function Compuerta({ y, aperturaCm, pausa }: { y: number; aperturaCm: number; pausa?: 'paused' }) {
+  const fondo = fondoNave(y);
+  const abierta = aperturaCm > 0;
+  const alzado = (Math.min(100, Math.max(0, aperturaCm)) / 100) * HUECO;
+  const hoja = HUECO + 6; // la hoja tapa el hueco y apoya en el piso
+  const tope = fondo - hoja - HUECO - 10; // el marco deja subir la hoja todo el hueco
+  const x0 = COMPUERTA_X;
+  const x1 = COMPUERTA_X + COMPUERTA_W;
+  const color = abierta ? 'var(--accent)' : 'var(--fg-subtle)';
+  const resorte = { type: 'spring' as const, stiffness: 140, damping: 22 };
+
+  return (
+    <g>
+      <title>{abierta ? `Compuerta de purga abierta ${aperturaCm} cm` : 'Compuerta de purga cerrada'}</title>
+
+      {/* Lodo saliendo por el hueco hacia el tubo */}
+      {abierta && (
+        <>
+          <motion.rect x={NAVE_X1 - 3} width={x1 - NAVE_X1 + 6} initial={false} animate={{ y: fondo - alzado, height: alzado }} transition={resorte} fill="var(--sludge)" />
+          {[
+            [x1, COLECTOR_X],
+            [COLECTOR_X + COLECTOR_W, GALERIA_X],
+          ].map(([a, b]) => (
+            <line
+              key={a}
+              x1={a}
+              x2={b}
+              y1={yTubo(y)}
+              y2={yTubo(y)}
+              stroke="var(--sludge-top)"
+              strokeWidth={5}
+              strokeDasharray="8 10"
+              strokeLinecap="round"
+              className="anim-flujo"
+              style={{ animationDuration: '0.9s', animationPlayState: pausa }}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Marco: guías, travesaño y motor */}
+      <line x1={x0 + 2} x2={x0 + 2} y1={tope} y2={fondo + 1} stroke="var(--line-strong)" strokeWidth={3} strokeLinecap="round" />
+      <line x1={x1 - 2} x2={x1 - 2} y1={tope} y2={fondo + 1} stroke="var(--line-strong)" strokeWidth={3} strokeLinecap="round" />
+      <line x1={x0} x2={x1} y1={tope} y2={tope} stroke="var(--line-strong)" strokeWidth={3} strokeLinecap="round" />
+      <rect x={x0 + 4} y={tope - 9} width={COMPUERTA_W - 8} height={8} rx={2} fill="var(--surface-3)" stroke="var(--line-strong)" strokeWidth={1.5} />
+
+      {/* Hoja con su vástago: sube y baja junta */}
+      <motion.g initial={false} animate={{ y: -alzado }} transition={resorte}>
+        <line x1={(x0 + x1) / 2} x2={(x0 + x1) / 2} y1={fondo - hoja - HUECO - 6} y2={fondo - hoja} stroke={color} strokeWidth={2} />
+        <rect x={x0 + 5} y={fondo - hoja} width={COMPUERTA_W - 10} height={hoja} rx={2} fill="var(--surface-3)" stroke={color} strokeWidth={2} />
+        {[0.33, 0.66].map((f) => (
+          <line key={f} x1={x0 + 8} x2={x1 - 8} y1={fondo - hoja + hoja * f} y2={fondo - hoja + hoja * f} stroke={color} strokeWidth={1} opacity={0.7} />
+        ))}
+      </motion.g>
+
     </g>
   );
 });
@@ -384,7 +457,7 @@ const AhoraMismo = memo(
       ['sedimento', sedimento],
     ];
     return (
-      <Rotulo x={GALERIA_X + 30} y={NAVE_Y[1] - 26} w={Q_X1 - GALERIA_X - 30} h={fondoNave(NAVE_Y[2]) - NAVE_Y[1] + 26}>
+      <Rotulo x={GALERIA_X + 30} y={NAVE_Y[1] - 26} w={DERECHA_X1 - GALERIA_X - 30} h={fondoNave(NAVE_Y[2]) - NAVE_Y[1] + 26}>
         <div className="flex h-full flex-col justify-center gap-3 pl-1">
           <p className="text-label font-semibold text-fg-muted">Ahora mismo</p>
           <ul className="flex flex-col gap-3">
@@ -408,16 +481,13 @@ const AhoraMismo = memo(
 );
 
 const BombaEsquema = memo(function BombaEsquema({ id, modelo, estado, x, pausa }: { id: string; modelo: string; estado: BombaEstado['estado']; x: number; pausa?: 'paused' }) {
-  const cy = (Q_Y0 + Q_Y1) / 2;
+  const cy = (EMB_Y0 + EMB_Y1) / 2;
   const enMarcha = estado === 'en_marcha';
   const color = enMarcha ? 'var(--accent)' : estado === 'falla' ? 'var(--crit)' : 'var(--fg-subtle)';
   const e = ESTADO_BOMBA[estado] ?? ESTADO_BOMBA.apagada;
   return (
     <g>
       <title>{`Bomba ${id.slice(1)} · ${modelo} · ${e.texto}`}</title>
-      {enMarcha && (
-        <path d={`M${x},${cy - 20} V${Q_Y0 - 16} H${x + 34}`} fill="none" stroke="var(--sludge-top)" strokeWidth={3} strokeDasharray="6 8" className="anim-flujo" style={{ animationDuration: '0.8s', animationPlayState: pausa }} />
-      )}
       <circle cx={x} cy={cy} r={20} fill="var(--surface-1)" stroke={color} strokeWidth={2} />
       <g transform={`translate(${x - 24},${cy - 24})`}>
         <g className={enMarcha ? 'anim-giro' : undefined} style={{ transformBox: 'view-box', transformOrigin: '24px 24px', animationPlayState: pausa }}>
@@ -427,7 +497,7 @@ const BombaEsquema = memo(function BombaEsquema({ id, modelo, estado, x, pausa }
         </g>
         <circle cx={24} cy={24} r={3.5} fill="var(--surface-1)" stroke={color} strokeWidth={1.5} />
       </g>
-      <Rotulo x={x - 58} y={Q_Y1 + 6} w={116} h={26}>
+      <Rotulo x={x - 58} y={EMB_Y1 + 6} w={116} h={26}>
         <div className="flex items-center justify-center gap-1.5">
           <span className="text-label font-semibold text-fg">B{id.slice(1)}</span>
           <EstadoChip estado={e.estado} texto={e.texto} tamano="sm" />
