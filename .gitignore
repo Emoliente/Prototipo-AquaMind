@@ -1,0 +1,26 @@
+# Dependencias (se instalan con npm install)
+/node_modules
+
+# Capturas de revisión que generan los scripts
+/capturas
+
+# Compilación (se genera con npm run build)
+/dist
+*.tsbuildinfo
+
+# Variables de entorno: tokens y claves nunca van al repositorio
+.env
+.env.*
+!.env.example
+
+# Registros
+*.log
+npm-debug.log*
+
+# Editores y sistema operativo
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

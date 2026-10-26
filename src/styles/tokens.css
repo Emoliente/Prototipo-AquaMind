@@ -1,0 +1,108 @@
+/*
+ * Tokens de diseño AquaMind.
+ * Toda la interfaz usa estas variables: no se usan colores sueltos en los componentes.
+ * Modo oscuro (sala de control) por defecto; modo claro con los mismos nombres.
+ */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Fondos y superficies (azul pizarra en capas) */
+  --base: #070d18;
+  --surface-1: #0d1524;
+  --surface-2: #121c2e;
+  --surface-3: #18253b;
+  --surface-hover: #1d2c45;
+  --line: #1f2e46;
+  --line-strong: #2c3f5e;
+  --overlay: rgb(3 7 14 / 0.76);
+
+  /* Texto */
+  --fg: #e7eef8;
+  --fg-muted: #98a8bf;
+  --fg-subtle: #7488a3;
+  --fg-on-accent: #04202f;
+
+  /* Acento: agua (solo para lo interactivo y el agua) */
+  --accent: #3cc4f0;
+  --accent-strong: #19aee0;
+  --accent-soft: rgb(60 196 240 / 0.12);
+  --accent-ring: rgb(60 196 240 / 0.45);
+
+  /* Agua (esquemas y tanques) */
+  --water-surface: #4cc3ec;
+  --water: #156d96;
+  --water-deep: #0a3754;
+  --water-flow: rgb(140 225 255 / 0.55);
+
+  /* Lodo: arena / ocre */
+  --sludge-top: #d6b27a;
+  --sludge: #b8904f;
+  --sludge-deep: #7d5f32;
+  --sludge-soft: rgb(214 178 122 / 0.14);
+
+  /* Estados reservados: solo para estados */
+  --ok: #3ddc97;
+  --ok-soft: rgb(61 220 151 / 0.12);
+  --warn: #f5b83d;
+  --warn-soft: rgb(245 184 61 / 0.13);
+  --crit: #ff6b6b;
+  --crit-soft: rgb(255 107 107 / 0.13);
+  --crit-strong: #e5484d;
+  --info: #6ea8ff;
+  --info-soft: rgb(110 168 255 / 0.13);
+  --stale: #8b98ad;
+  --stale-soft: rgb(139 152 173 / 0.14);
+
+  --shadow-1: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -8px rgb(0 0 0 / 0.55);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --base: #edf1f6;
+  --surface-1: #ffffff;
+  --surface-2: #f6f8fb;
+  --surface-3: #e9eef5;
+  --surface-hover: #e1e8f1;
+  --line: #d9e1ec;
+  --line-strong: #bcc8d8;
+  --overlay: rgb(15 23 42 / 0.5);
+
+  --fg: #0c1828;
+  --fg-muted: #4a5b73;
+  --fg-subtle: #5f6f86;
+  --fg-on-accent: #ffffff;
+
+  --accent: #0472a8;
+  --accent-strong: #035d8a;
+  --accent-soft: rgb(4 114 168 / 0.1);
+  --accent-ring: rgb(4 114 168 / 0.4);
+
+  --water-surface: #7fd3f2;
+  --water: #3a9fcb;
+  --water-deep: #1f6f99;
+  --water-flow: rgb(255 255 255 / 0.65);
+
+  --sludge-top: #c9a064;
+  --sludge: #a77d3f;
+  --sludge-deep: #6e5126;
+  --sludge-soft: rgb(167 125 63 / 0.14);
+
+  --ok: #067a4f;
+  --ok-soft: rgb(6 122 79 / 0.1);
+  --warn: #a35a00;
+  --warn-soft: rgb(196 120 0 / 0.12);
+  --crit: #c41d1d;
+  --crit-soft: rgb(196 29 29 / 0.09);
+  --crit-strong: #c41d1d;
+  --info: #1f55d0;
+  --info-soft: rgb(31 85 208 / 0.09);
+  --stale: #5d6b80;
+  --stale-soft: rgb(93 107 128 / 0.12);
+
+  --shadow-1: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-2: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -10px rgb(15 23 42 / 0.16);
+}
