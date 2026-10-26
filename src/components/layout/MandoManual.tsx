@@ -92,7 +92,7 @@ export function MandoManual() {
           <section className="flex flex-col gap-3">
             <h3 className="text-label font-semibold uppercase tracking-wider text-fg-subtle">Bombas de lodos</h3>
             <p className="text-label text-fg-muted">
-              Lodo pendiente en la quebrada: <span className="num font-semibold text-fg">{formatoNumero(planta.quebradaM3)}</span> m³
+              Lodo fino en el embalse: <span className="num font-semibold text-fg">{formatoNumero(planta.embalseLodoM3)}</span> m³
             </p>
             {planta.bombas.map((b) => {
               const enMarcha = b.estado === 'en_marcha';

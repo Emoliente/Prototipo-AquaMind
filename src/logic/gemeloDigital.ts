@@ -21,6 +21,18 @@ export function cargaSedimentoTH(sstGL: number, caudalM3s: number): number {
   return (sstGL * caudalM3s * 3600) / 1000;
 }
 
+/** Lodo asentado: ~1.4 t por m³ (supuesto; el mismo con que se estimó la eficiencia). */
+const DENSIDAD_LODO_T_M3 = 1.4;
+
+/**
+ * Lodo fino que llega al embalse, en m³ por hora. La purga va a la quebrada; el agua limpia
+ * va al embalse con los finos que no se quedaron en las naves, y ahí, casi quieta, los deja
+ * asentar (supuesto: todos, donde las bombas los alcanzan).
+ */
+export function finosAlEmbalseM3h(sstSalidaGL: number, caudalM3s: number): number {
+  return cargaSedimentoTH(sstSalidaGL, caudalM3s) / DENSIDAD_LODO_T_M3;
+}
+
 export function horasACritico(nivelCm: number, criticoCm: number, tasaCmH: number): number | null {
   if (tasaCmH <= 0.05) return null;
   return Math.max(0, (criticoCm - nivelCm) / tasaCmH);

@@ -368,7 +368,7 @@ function Quebrada3D({ planta, colores, movimiento }: { planta: EstadoPlanta; col
   const lodo = useRef<THREE.Mesh>(null);
   const ancho = Q.x1 - Q.x0;
   const fondo = Q.z1 - Q.z0;
-  const objetivo = Math.max(0.05, (planta.quebradaM3 / planta.quebradaCapacidadM3) * (Q.alto - 0.3));
+  const objetivo = Math.max(0.05, (planta.embalseLodoM3 / planta.embalseCapacidadM3) * (Q.alto - 0.3));
 
   useFrame((_, dt) => {
     const m = lodo.current;
@@ -397,7 +397,7 @@ function Quebrada3D({ planta, colores, movimiento }: { planta: EstadoPlanta; col
           <span>
             <span className="font-semibold text-fg">Quebrada</span>{' '}
             <span className="text-fg-muted">
-              · <span className="num text-fg">{formatoNumero(planta.quebradaM3)}</span> m³ de lodo
+              · <span className="num text-fg">{formatoNumero(planta.embalseLodoM3)}</span> m³ de lodo
             </span>
           </span>
           {/* Estado de las bombas en un solo rótulo: tres separados se tapaban entre sí. */}

@@ -35,7 +35,7 @@ export function ResultadoUltimaPurga({ planta }: { planta: EstadoPlanta }) {
             <p className="text-label text-fg-muted">Lodo purgado</p>
             <Valor valor={u.volumenM3 ?? 0} unidad="m³" tamano="lg" />
             <p className="text-label text-fg-muted">
-              <span className="num text-fg">{formatoNumero(delta)}</span> cm × <span className="num text-fg">{formatoNumero(nave.areaM2)}</span> m² de nave
+              <span className="num text-fg">{formatoNumero(delta)}</span> cm × <span className="num text-fg">{formatoNumero(nave.areaM2)}</span> m² de nave · se fue a la quebrada
             </p>
           </div>
           <dl className="grid grid-cols-2 gap-3">
@@ -58,11 +58,12 @@ export function ResultadoUltimaPurga({ planta }: { planta: EstadoPlanta }) {
           >
             <Fan className="size-5 shrink-0 text-accent" aria-hidden />
             <span className="flex-1 text-label text-fg">
+              {/* El bombeo es aparte: saca del embalse los finos que pasan con el agua limpia, no lo purgado. */}
               {planta.bombeo
-                ? 'Bombeo en curso'
-                : planta.plan.asignaciones.length
-                  ? <>Plan de bombeo: {planta.plan.asignaciones.map((a) => `B${a.bombaId.slice(1)}`).join(' + ')} por <span className="num">{formatoDuracion(planta.plan.asignaciones[0].minutos)}</span></>
-                  : 'Quebrada sin lodo pendiente'}
+                ? 'Embalse: bombeo en curso'
+                : planta.plan.asignaciones.length && planta.embalseLodoM3 >= planta.embalseUmbralM3
+                  ? <>Embalse: {planta.plan.asignaciones.map((a) => `B${a.bombaId.slice(1)}`).join(' + ')} por <span className="num">{formatoDuracion(planta.plan.asignaciones[0].minutos)}</span></>
+                  : 'Embalse: aún no hace falta bombear'}
             </span>
             <ArrowRight className="size-4 text-fg-muted" aria-hidden />
           </Link>

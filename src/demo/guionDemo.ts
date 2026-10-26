@@ -1,11 +1,11 @@
 /**
  * Guion del Modo demo (~60 s): lluvias → sube el lodo de la N2 → alerta (pantalla y Telegram)
- * → recomendación → confirmación → la compuerta abre y el nivel baja → volumen purgado y plan
- * de bombeo → las bombas trabajan → energía ahorrada frente a 8 h fijas.
+ * → recomendación → confirmación → la compuerta abre y el nivel baja → volumen purgado (va a la
+ * quebrada) → las bombas del embalse sacan los finos → energía ahorrada frente a 8 h fijas.
  */
 import type { Comando, EstadoPlanta } from '@/data/DataSource';
 import type { NaveId } from '@/types/dominio';
-import { formatoDuracion, formatoNumero } from '@/lib/format';
+import { formatoNumero } from '@/lib/format';
 
 export interface ContextoDemo {
   enviar: (c: Comando) => void;
@@ -120,12 +120,11 @@ export const PASOS: PasoDemo[] = [
   },
   {
     id: 'volumen',
-    titulo: 'Volumen purgado y plan de bombeo',
+    titulo: 'Volumen purgado: va a la quebrada',
     narracion: (p) => {
       const u = p.ultimaPurga;
-      const plan = p.plan.asignaciones.map((a) => `Bomba ${a.bombaId.slice(1)} por ${formatoDuracion(a.minutos)}`).join(' y ');
       return u
-        ? `Salieron ${formatoNumero(u.volumenM3 ?? 0)} m³ de lodo (Δ nivel × 260 m²) con ${formatoNumero(u.aguaUsadaM3 ?? 0)} m³ de agua. Plan: ${plan || 'sin bombeo'}, empezando por la que menos gasta.`
+        ? `Salieron ${formatoNumero(u.volumenM3 ?? 0)} m³ de lodo (Δ nivel × 260 m²) con ${formatoNumero(u.aguaUsadaM3 ?? 0)} m³ de agua. Todo va a la quebrada: ese lodo no se bombea.`
         : 'Calculando el volumen purgado…';
     },
     duracionMs: 6500,
@@ -136,16 +135,17 @@ export const PASOS: PasoDemo[] = [
   },
   {
     id: 'bombeo',
-    titulo: 'Las bombas trabajan solo lo necesario',
+    titulo: 'Las bombas del embalse trabajan solo lo necesario',
     narracion: (p) => {
       const enMarcha = p.bombas.filter((b) => b.estado === 'en_marcha').map((b) => `Bomba ${b.id.slice(1)}`);
       return enMarcha.length
-        ? `${enMarcha.join(' y ')} en marcha: quedan ${formatoNumero(p.quebradaM3)} m³ en la quebrada. Se apaga sola al terminar.`
-        : `Quebrada vacía. Energía usada: ${formatoNumero(p.energiaHoyKwh)} kWh.`;
+        ? `Aparte, el agua limpia deja en el embalse los finos que pasan. ${enMarcha.join(' y ')} en marcha: quedan ${formatoNumero(p.embalseLodoM3)} m³ de lodo fino. Se apaga sola al terminar.`
+        : `Bombeo del embalse terminado. Energía usada: ${formatoNumero(p.energiaHoyKwh)} kWh.`;
     },
     duracionMs: 5000,
     maxMs: 14000,
-    listo: (p) => !p.bombeo && p.quebradaM3 < 1,
+    // Mientras bombea siguen llegando finos: termina cuando se apagan las bombas, no al llegar a cero.
+    listo: (p) => !p.bombeo,
     alEntrar: ({ enviar, subir }) => {
       subir();
       enviar({ tipo: 'ejecutar_plan', usuarioId: 'u-tecnico', motivo: 'Modo demo' });

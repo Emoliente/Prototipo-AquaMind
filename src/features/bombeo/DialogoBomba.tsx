@@ -20,8 +20,8 @@ export function DialogoBomba({
   const comando = useComando();
   const b = planta.bombas.find((x) => x.id === bombaId);
   const encender = b?.estado !== 'en_marcha';
-  const sola = b ? (planta.quebradaM3 / b.capacidadM3h) * 60 : 0;
-  const sinLodo = planta.quebradaM3 < 1;
+  const sola = b ? (planta.embalseLodoM3 / b.capacidadM3h) * 60 : 0;
+  const sinLodo = planta.embalseLodoM3 < 1;
 
   return (
     <Dialogo
@@ -69,23 +69,23 @@ export function DialogoBomba({
           {encender ? (
             <p className="text-label text-fg">
               {sinLodo ? (
-                'No hay lodo en la quebrada: no hace falta encenderla.'
+                'No hay lodo fino en el embalse: no hace falta encenderla.'
               ) : (
                 <>
-                  Con <span className="num">{formatoNumero(planta.quebradaM3)}</span> m³ pendientes, sola tardaría{' '}
-                  <span className="num font-semibold">{formatoDuracion(sola)}</span>. Queda en marcha hasta que la apagues o se vacíe la quebrada.
+                  Con <span className="num">{formatoNumero(planta.embalseLodoM3)}</span> m³ pendientes, sola tardaría{' '}
+                  <span className="num font-semibold">{formatoDuracion(sola)}</span>. Queda en marcha hasta que la apagues o se acabe el lodo fino.
                 </>
               )}
             </p>
           ) : (
             <p className="text-label text-fg">
-              Quedan <span className="num">{formatoNumero(planta.quebradaM3)}</span> m³ en la quebrada.
+              Quedan <span className="num">{formatoNumero(planta.embalseLodoM3)}</span> m³ de lodo fino en el embalse.
             </p>
           )}
           {encender && planta.horaPunta && (
             <p className="flex items-start gap-2 rounded-btn bg-warn-soft p-3 text-label font-medium text-warn">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              Es hora punta: la energía cuesta más. Si la quebrada lo permite, espera a las {planta.config.horaPuntaFin}:00.
+              Es hora punta: la energía cuesta más. Si el embalse lo permite, espera a las {planta.config.horaPuntaFin}:00.
             </p>
           )}
         </div>

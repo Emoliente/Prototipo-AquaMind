@@ -6,8 +6,10 @@ import { aPaso } from '@/lib/movimiento';
 import { formatoNumero } from '@/lib/format';
 
 /*
- * Corte de la quebrada: el lodo purgado entra por la galería (izquierda) y
- * las 3 bombas sumergibles lo evacúan por sus tuberías (derecha arriba).
+ * Corte del embalse junto a las bombas: el agua limpia del desarenador entra por la
+ * izquierda con los finos que no se quedaron en las naves; casi quieta, los deja asentar
+ * en el fondo y las 3 bombas sumergibles los evacúan por sus tuberías (derecha arriba).
+ * El lodo de las purgas no llega aquí: va a la quebrada.
  */
 const W = 640;
 const H = 270;
@@ -24,19 +26,19 @@ interface Props {
   volumenM3: number;
   capacidadM3: number;
   bombas: BombaEstado[];
-  /** Hay una purga en curso: entra lodo por la galería. */
+  /** Entra agua del desarenador (se anima el chorro de llegada). */
   entrando?: boolean;
   className?: string;
 }
 
-export function QuebradaVista({ volumenM3, capacidadM3, bombas, entrando, className }: Props) {
+export function EmbalseVista({ volumenM3, capacidadM3, bombas, entrando, className }: Props) {
   const uid = useId().replace(/:/g, '');
   const f = volumenM3 / capacidadM3;
   const y = aPaso(yNivel(Math.max(0.02, f)));
   const cuenco = `M60,${BORDE} L110,${FONDO} Q112,${FONDO + 8} 120,${FONDO + 8} L520,${FONDO + 8} Q528,${FONDO + 8} 530,${FONDO} L580,${BORDE}`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className={cn('block h-auto w-full', className)} role="img" aria-label={`Quebrada con ${formatoNumero(volumenM3)} m³ de lodo pendiente de ${formatoNumero(capacidadM3)} m³`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className={cn('block h-auto w-full', className)} role="img" aria-label={`Embalse con ${formatoNumero(volumenM3)} m³ de lodo fino por bombear, de ${formatoNumero(capacidadM3)} m³ que admite la zona de las bombas`}>
       <defs>
         <clipPath id={`c${uid}`}>
           <path d={`${cuenco} Z`} />
@@ -50,6 +52,10 @@ export function QuebradaVista({ volumenM3, capacidadM3, bombas, entrando, classN
       {/* terreno */}
       <path d={`M0,${BORDE} H60 ${cuenco.slice(cuenco.indexOf('L'))} H${W}`} fill="none" stroke="var(--line-strong)" strokeWidth={2.5} strokeLinejoin="round" />
       <path d={`${cuenco} Z`} fill="var(--surface-2)" />
+      {/* agua del embalse, casi quieta, sobre el lodo fino */}
+      <g clipPath={`url(#c${uid})`}>
+        <rect x={0} y={BORDE + 10} width={W} height={H} fill="var(--water)" fillOpacity={0.35} />
+      </g>
 
       {/* lodo */}
       <g clipPath={`url(#c${uid})`}>
@@ -70,13 +76,13 @@ export function QuebradaVista({ volumenM3, capacidadM3, bombas, entrando, classN
         <text x={610} y={BORDE - 14}>m³</text>
       </g>
 
-      {/* entrada desde la galería de purga */}
-      <rect x={0} y={BORDE - 26} width={66} height={14} rx={3} fill="var(--surface-3)" stroke="var(--line-strong)" />
+      {/* llegada del agua limpia del desarenador, con los finos */}
+      <rect x={0} y={BORDE - 26} width={66} height={14} rx={3} fill="var(--water)" fillOpacity={0.55} stroke="var(--line-strong)" />
       {entrando && (
-        <path d={`M62,${BORDE - 19} Q84,${BORDE - 18} 92,${BORDE + 10} T100,${y}`} fill="none" stroke="var(--sludge-top)" strokeWidth={5} strokeDasharray="8 8" strokeLinecap="round" className="anim-flujo" style={{ animationDuration: '0.8s' }} />
+        <path d={`M62,${BORDE - 19} Q84,${BORDE - 18} 92,${BORDE + 14}`} fill="none" stroke="var(--water-surface)" strokeWidth={5} strokeDasharray="8 8" strokeLinecap="round" className="anim-flujo" style={{ animationDuration: '0.8s' }} />
       )}
       <text x={4} y={BORDE - 34} fontSize="11" fill="var(--fg-muted)">
-        Desde la galería de purga
+        Agua limpia del desarenador, con finos
       </text>
 
       {/* tubería de descarga común */}

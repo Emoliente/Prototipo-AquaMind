@@ -142,7 +142,7 @@ function Panel({ planta }: { planta: EstadoPlanta }) {
               <span className="block">
                 <span className="num text-fg">{formatoNumero(retenidoTH, retenidoTH < 10 ? 1 : 0)}</span> t por hora, sobre todo arena
               </span>
-              <span className="block">Los finos siguen al canal</span>
+              <span className="block">Los finos siguen al embalse</span>
             </>
           }
         />

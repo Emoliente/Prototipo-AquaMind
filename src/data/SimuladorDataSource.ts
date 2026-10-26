@@ -28,6 +28,7 @@ import {
   bajadaPorPurgaCmMin,
   duracionPurgaMin,
   ESCENARIOS,
+  finosAlEmbalseM3h,
   horasACritico,
   tasaSubidaBase,
   volumenPurgadoM3,
@@ -58,7 +59,10 @@ import type {
 
 const MIN = 60_000;
 const DIA_MS = 24 * 60 * MIN;
-const CAPACIDAD_QUEBRADA_M3 = 3000;
+/** Lodo fino que admite la zona de las bombas del embalse antes de estorbar la succión (supuesto). */
+const CAPACIDAD_EMBALSE_M3 = 3000;
+/** Desde cuánto lodo fino conviene bombear: por debajo, el arranque no compensa. */
+const UMBRAL_BOMBEO_M3 = 150;
 
 
 /** Generador pseudoaleatorio con semilla (mulberry32): mismas condiciones en cada arranque. */
@@ -123,7 +127,10 @@ interface Interno {
 
   naves: NaveInterna[];
   bombas: BombaEstado[];
-  quebrada: number;
+  /** Lodo fino asentado en el embalse, por bombear (m³). La purga no llega aquí: va a la quebrada. */
+  embalse: number;
+  /** Finos que llegan al embalse con el agua limpia (m³/h). */
+  finosEmbalse: number;
   energiaHoy: number;
   energiaMes: number;
   energiaDiaria: { dia: number; kwh: number }[];
@@ -296,7 +303,9 @@ export class SimuladorDataSource implements DataSource {
         minutosRestantes: null,
         horometroH: { B1: 11_842, B2: 6_315, B3: 9_207 }[b.id],
       })),
-      quebrada: 40,
+      // En seca llegan ~33 m³ de finos al día: el primer bombeo de la semana cae la segunda noche.
+      embalse: 100,
+      finosEmbalse: finosAlEmbalseM3h(0.054, ESCENARIOS.seca.caudalBase),
       energiaHoy: 0,
       energiaMes: 0,
       energiaDiaria: [],
@@ -321,7 +330,7 @@ export class SimuladorDataSource implements DataSource {
           { id: 'nivel_N1', nombre: 'Nivel de lodo · Nave 1', naveId: 'N1', unidad: 'cm', decimales: 0, rango: [0, 400], ganancia: 1, sesgo: 2, dias: 21 },
           { id: 'nivel_N2', nombre: 'Nivel de lodo · Nave 2', naveId: 'N2', unidad: 'cm', decimales: 0, rango: [0, 400], ganancia: 1, sesgo: 9, dias: 21 },
           { id: 'nivel_N3', nombre: 'Nivel de lodo · Nave 3', naveId: 'N3', unidad: 'cm', decimales: 0, rango: [0, 400], ganancia: 1, sesgo: -3, dias: 21 },
-          { id: 'quebrada', nombre: 'Nivel de la quebrada', unidad: 'm³', decimales: 0, rango: [0, CAPACIDAD_QUEBRADA_M3], ganancia: 1, sesgo: 0, dias: 90 },
+          { id: 'embalse', nombre: 'Lodo en el embalse', unidad: 'm³', decimales: 0, rango: [0, CAPACIDAD_EMBALSE_M3], ganancia: 1, sesgo: 0, dias: 90 },
         ] as const
       ).map(({ dias, ...x }) => ({
         ...x,
@@ -354,7 +363,8 @@ export class SimuladorDataSource implements DataSource {
       this.s.energiaHoy +
       this.s.energiaDiaria.filter((d) => new Date(d.dia).getMonth() === hoy0.getMonth()).reduce((a, d) => a + d.kwh, 0);
 
-    // Última semana simulada (operación de siempre: purgas de noche, como en el registro de limpieza).
+    // Última semana simulada (operación de siempre: purgas de noche, como en el registro de limpieza,
+    // y el bombeo del embalse a las 23:15, fuera de la hora punta, cuando ya juntó lodo fino).
     const anoche = new Date(ahora - 24 * 60 * MIN);
     anoche.setHours(21, 0, 0, 0);
     const hace5d = new Date(ahora - 5 * 24 * 60 * MIN);
@@ -364,7 +374,6 @@ export class SimuladorDataSource implements DataSource {
       { t: anoche.getTime(), nave: 'N1' as NaveId, objetivo: 60 },
     ];
     const tecnico = USUARIOS.tecnico.id;
-    let planPendienteDesde: number | null = null;
 
     this.control();
     while (this.s.t < ahora) {
@@ -373,12 +382,11 @@ export class SimuladorDataSource implements DataSource {
           const n = this.nave(h.nave);
           const dur = duracionPurgaMin(n.nivel, h.objetivo, 20);
           this.ejecutar({ tipo: 'iniciar_purga', naveId: h.nave, aperturaCm: 20, duracionMin: dur, origen: 'manual', usuarioId: tecnico });
-          planPendienteDesde = this.s.t + (dur + 40) * MIN;
         }
       }
-      if (planPendienteDesde !== null && this.s.t >= planPendienteDesde && this.s.purgas.length === 0) {
+      const d = new Date(this.s.t);
+      if (d.getHours() === 23 && d.getMinutes() === 15 && !this.s.bombeo && this.s.embalse >= UMBRAL_BOMBEO_M3) {
         this.ejecutar({ tipo: 'ejecutar_plan', usuarioId: tecnico });
-        planPendienteDesde = null;
       }
       this.paso();
     }
@@ -405,7 +413,7 @@ export class SimuladorDataSource implements DataSource {
       if (d.getDate() === 1) s.energiaMes = 0;
     }
     if (d.getHours() === s.config.horaPuntaInicio && d.getMinutes() === 0 && s.bombas.some((b) => b.estado === 'en_marcha')) {
-      this.alerta('advertencia', 'Empezó la hora punta con bombas encendidas', 'Si la quebrada lo permite, pausar el bombeo hasta las 23:00.', undefined, `Tarifa más cara de ${s.config.horaPuntaInicio}:00 a ${s.config.horaPuntaFin}:00.`);
+      this.alerta('advertencia', 'Empezó la hora punta con bombas encendidas', 'Si el embalse lo permite, pausar el bombeo hasta las 23:00.', undefined, `Tarifa más cara de ${s.config.horaPuntaInicio}:00 a ${s.config.horaPuntaFin}:00.`);
     }
     this.pasoProgramadas();
     if (s.planProgramado && s.t >= s.planProgramado.inicio && !s.bombeo) {
@@ -473,6 +481,10 @@ export class SimuladorDataSource implements DataSource {
     // de purgas (~0.15 m³ de lodo por t que entra, con ~1.4 t/m³ de lodo asentado, supuesto).
     s.eficiencia = limitar(21 - (s.caudal - 10) * 1.2 + normal() * 0.6, 12, 30);
     s.sstSalida = s.sst * (1 - s.eficiencia / 100);
+
+    // Los finos que pasan se van con el agua limpia al embalse y se asientan ahí.
+    s.finosEmbalse = finosAlEmbalseM3h(s.sstSalida, s.caudal);
+    s.embalse = Math.min(CAPACIDAD_EMBALSE_M3, s.embalse + s.finosEmbalse / 60);
   }
 
   private pasoNaves() {
@@ -497,11 +509,9 @@ export class SimuladorDataSource implements DataSource {
         }
         const bajada = Math.min(bajadaPorPurgaCmMin(n.compuertaCm, n.nivel), Math.max(0, n.nivel - 5));
         delta -= bajada;
-        const vol = volumenPurgadoM3(bajada, n.area);
-        p.volumenParcialM3 += vol;
+        // Lo purgado (lodo y agua) baja a la quebrada: no llega al embalse ni a las bombas.
+        p.volumenParcialM3 += volumenPurgadoM3(bajada, n.area);
         p.aguaParcialM3 += aguaPorMinutoM3(n.compuertaCm);
-        s.quebrada = Math.min(CAPACIDAD_QUEBRADA_M3, s.quebrada + vol);
-
       }
       n.nivel = Math.max(5, n.nivel + delta);
       if (p) {
@@ -533,13 +543,10 @@ export class SimuladorDataSource implements DataSource {
     });
     // Guarda el resultado para que la pantalla muestre el volumen al terminar.
     this.ultimaPurga = { ...p, fin: s.t, nivelFinalCm: n.nivel, volumenM3: volumen, aguaUsadaM3: agua, estado: 'terminada', duracionMin: duracion };
-    const plan = this.planPara(s.quebrada);
     this.alerta(
       'info',
       `Purga de la ${n.nombre} terminada: ${formatoNumero(volumen)} m³ de lodo`,
-      plan.asignaciones.length
-        ? `Plan de bombeo listo: ${plan.asignaciones.map((a) => a.bombaId).join(' + ')} por ${formatoDuracion(plan.asignaciones[0].minutos)}.`
-        : 'Sin lodo pendiente de bombear.',
+      'Ninguna: el lodo purgado se fue a la quebrada.',
       n.id,
       `Usó ${formatoNumero(agua)} m³ de agua en ${formatoDuracion(duracion)}.`,
     );
@@ -555,8 +562,8 @@ export class SimuladorDataSource implements DataSource {
         b.potenciaActualKw = 0;
         continue;
       }
-      const mov = Math.min(s.quebrada, b.capacidadM3h / 60);
-      s.quebrada -= mov;
+      const mov = Math.min(s.embalse, b.capacidadM3h / 60);
+      s.embalse -= mov;
       const kwh = b.potenciaKw / 60;
       s.energiaHoy += kwh;
       s.energiaMes += kwh;
@@ -573,8 +580,9 @@ export class SimuladorDataSource implements DataSource {
         if (b.minutosRestantes <= 0) this.apagar(b);
       }
     }
-    if (s.quebrada <= 0.5) {
-      s.quebrada = 0;
+    // Los finos llegan de a poco (fracciones de m³ por minuto): solo se da por vacío mientras se bombea.
+    if (s.embalse <= 0.5 && s.bombas.some((b) => b.estado === 'en_marcha')) {
+      s.embalse = 0;
       s.bombas.filter((b) => b.estado === 'en_marcha').forEach((b) => this.apagar(b));
     }
     if (s.bombeo && !s.bombas.some((b) => b.estado === 'en_marcha')) this.terminarBombeo();
@@ -599,7 +607,7 @@ export class SimuladorDataSource implements DataSource {
       duracionMin: min,
       volumenM3: bo.volumenM3,
       kwh: bo.kwh,
-      detalle: `Bombeo con ${bo.plan.asignaciones.map((a) => nombreBomba(a.bombaId)).join(' y ')}: ${formatoNumero(bo.volumenM3)} m³ evacuados.`,
+      detalle: `Bombeo del embalse con ${bo.plan.asignaciones.map((a) => nombreBomba(a.bombaId)).join(' y ')}: ${formatoNumero(bo.volumenM3)} m³ de lodo fino evacuados.`,
     });
     this.alerta(
       'info',
@@ -625,7 +633,7 @@ export class SimuladorDataSource implements DataSource {
       if (x.estado === 'en_linea') x.actualizado = s.t;
     }
     if (s.enVivo && rng() < 1 / 700) {
-      const candidatos = s.sensores.filter((x) => x.estado === 'en_linea' && ['sst_out', 'nivel_N3', 'nivel_N1', 'quebrada', 'caudal'].includes(x.id));
+      const candidatos = s.sensores.filter((x) => x.estado === 'en_linea' && ['sst_out', 'nivel_N3', 'nivel_N1', 'embalse', 'caudal'].includes(x.id));
       const x = candidatos[Math.floor(rng() * candidatos.length)];
       if (x) {
         const tipo: EstadoSensor =
@@ -651,7 +659,7 @@ export class SimuladorDataSource implements DataSource {
       horaPuntaInicio: s.config.horaPuntaInicio,
       horaPuntaFin: s.config.horaPuntaFin,
       lineaBaseKwhDia: s.config.lineaBaseKwhDia,
-      urgente: volumen > CAPACIDAD_QUEBRADA_M3 * 0.75,
+      urgente: volumen > CAPACIDAD_EMBALSE_M3 * 0.75,
     });
   }
 
@@ -682,7 +690,7 @@ export class SimuladorDataSource implements DataSource {
     s.principal = pool.reduce((a, b) => (b.urgencia > a.urgencia ? b : a));
 
     // En la pre-simulación basta recalcular el plan cada 10 min.
-    if (!s.bombeo && (s.enVivo || new Date(s.t).getMinutes() % 10 === 0)) s.plan = this.planPara(s.quebrada);
+    if (!s.bombeo && (s.enVivo || new Date(s.t).getMinutes() % 10 === 0)) s.plan = this.planPara(s.embalse);
 
     if (s.modo === 'automatico' && !s.emergencia && s.enVivo) {
       const a = s.config.automatico;
@@ -692,8 +700,8 @@ export class SimuladorDataSource implements DataSource {
       if (p.accion === 'purgar_ya' && s.purgas.length === 0 && s.purgasHoy < a.purgasMaxDia && enHorario) {
         this.ejecutar({ tipo: 'iniciar_purga', naveId: p.naveId, aperturaCm: p.aperturaCm, duracionMin: p.duracionMin, origen: 'automatico', usuarioId: USUARIO_SISTEMA.id, motivo: p.reglaTexto });
       }
-      if (!s.bombeo && s.purgas.length === 0 && s.quebrada > 50 && s.t >= s.plan.inicioSugerido) {
-        this.ejecutar({ tipo: 'ejecutar_plan', usuarioId: USUARIO_SISTEMA.id, motivo: 'Plan automático tras la purga' });
+      if (!s.bombeo && s.embalse >= UMBRAL_BOMBEO_M3 && s.t >= s.plan.inicioSugerido) {
+        this.ejecutar({ tipo: 'ejecutar_plan', usuarioId: USUARIO_SISTEMA.id, motivo: 'Plan automático: lodo fino en el embalse' });
       }
     }
   }
@@ -764,8 +772,8 @@ export class SimuladorDataSource implements DataSource {
         return s.sst * x.ganancia;
       case 'sst_out':
         return s.sstSalida * x.ganancia;
-      case 'quebrada':
-        return s.quebrada * x.ganancia;
+      case 'embalse':
+        return s.embalse * x.ganancia;
       default:
         return this.nivelExpuesto(this.nave(x.naveId!));
     }
@@ -919,7 +927,7 @@ export class SimuladorDataSource implements DataSource {
       sstSalidaGL: this.lectura('sst_out'),
       eficienciaPct: s.eficiencia,
       niveles: { N1: this.nivelExpuesto(s.naves[0]), N2: this.nivelExpuesto(s.naves[1]), N3: this.nivelExpuesto(s.naves[2]) },
-      quebradaM3: s.quebrada,
+      embalseLodoM3: s.embalse,
       energiaKwh: s.energiaHoy,
     };
   }
@@ -1043,7 +1051,7 @@ export class SimuladorDataSource implements DataSource {
         if (c.encender) {
           if (s.emergencia) return no('Parada de emergencia activa.', c.usuarioId, accion);
           if (b.estado === 'falla') return no(`${nombreBomba(b.id)} en falla: revisar en campo.`, c.usuarioId, accion);
-          if (s.quebrada < 1) return no('No hay lodo pendiente en la quebrada.', c.usuarioId, accion);
+          if (s.embalse < 1) return no('No hay lodo fino por bombear en el embalse.', c.usuarioId, accion);
           b.estado = 'en_marcha';
           b.minutosRestantes = null;
           if (!s.bombeo) {
@@ -1080,7 +1088,7 @@ export class SimuladorDataSource implements DataSource {
       case 'ejecutar_plan': {
         s.planProgramado = null;
         if (s.emergencia) return no('Parada de emergencia activa.', c.usuarioId, 'Iniciar plan de bombeo');
-        const plan = this.planPara(s.quebrada);
+        const plan = this.planPara(s.embalse);
         if (!plan.asignaciones.length) return no('No hay lodo pendiente de bombear.');
         for (const a of plan.asignaciones) {
           const b = s.bombas.find((x) => x.id === a.bombaId)!;
@@ -1316,8 +1324,10 @@ export class SimuladorDataSource implements DataSource {
       eficienciaPct: s.eficiencia,
       naves,
       bombas: s.bombas.map((b) => ({ ...b })),
-      quebradaM3: s.quebrada,
-      quebradaCapacidadM3: CAPACIDAD_QUEBRADA_M3,
+      embalseLodoM3: s.embalse,
+      embalseCapacidadM3: CAPACIDAD_EMBALSE_M3,
+      embalseUmbralM3: UMBRAL_BOMBEO_M3,
+      finosEmbalseM3h: s.finosEmbalse,
       energiaHoyKwh: s.energiaHoy,
       energiaDiaria: [...s.energiaDiaria],
       planProgramado: s.planProgramado,

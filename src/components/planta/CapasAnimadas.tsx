@@ -32,6 +32,8 @@ interface FlujoProps {
   largo: number;
   /** Vertical: el flujo sube (de y + largo hacia y). */
   vertical?: boolean;
+  /** Sentido contrario: hacia la izquierda, o hacia abajo si es vertical. */
+  inverso?: boolean;
   grosor?: number;
   color?: string;
   opacidad?: number;
@@ -48,6 +50,7 @@ export const FlujoCapa = memo(function FlujoCapa({
   y,
   largo,
   vertical = false,
+  inverso = false,
   grosor = 1.2,
   color = 'var(--water-flow)',
   opacidad = 0.5,
@@ -63,7 +66,7 @@ export const FlujoCapa = memo(function FlujoCapa({
   return (
     <div style={{ ...estiloCaja, opacity: opacidad }} aria-hidden>
       <div
-        className={vertical ? 'capa-sube' : 'capa-avanza'}
+        className={vertical ? (inverso ? 'capa-baja' : 'capa-sube') : inverso ? 'capa-izquierda' : 'capa-avanza'}
         style={{
           position: 'absolute',
           left: 0,

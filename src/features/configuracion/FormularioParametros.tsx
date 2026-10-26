@@ -153,7 +153,7 @@ export function FormularioParametros({
         <legend className="mb-3 flex items-center gap-2 text-body font-semibold text-fg">
           <Clock className="size-4 text-fg-muted" aria-hidden /> Hora punta eléctrica
         </legend>
-        <p className="-mt-2 text-label text-fg-muted">El plan de bombeo evita esta franja si la quebrada lo permite.</p>
+        <p className="-mt-2 text-label text-fg-muted">El plan de bombeo evita esta franja si el embalse lo permite.</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5">
             <span className="text-label font-semibold text-fg-muted">Empieza</span>

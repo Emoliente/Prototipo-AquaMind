@@ -67,8 +67,10 @@ export function fraseBombeo(planta: EstadoPlanta): Frase {
     const cuales = enMarcha.map((b) => `B${b.id.slice(1)}`).join(' y ');
     return { texto: resta > 0 ? `Bombeando con ${cuales} · faltan ${formatoDuracion(resta)}` : `Bombeando con ${cuales}` };
   }
-  if (valido(planta.quebradaM3) && planta.quebradaM3 >= 1) return { texto: 'Lodo en el embalse esperando bombeo' };
-  return { texto: 'Bombas en espera: no hay lodo en el embalse' };
+  if (valido(planta.embalseLodoM3) && valido(planta.embalseUmbralM3) && planta.embalseLodoM3 >= planta.embalseUmbralM3) {
+    return { texto: 'Lodo fino en el embalse: toca bombear' };
+  }
+  return { texto: 'Bombas en espera: aún hay poco lodo fino' };
 }
 
 /** Cuánto sedimento trae el agua: anticipa si las naves se llenan más rápido. */
@@ -79,10 +81,10 @@ export function fraseSedimento(sstGL: number): Frase {
   return { texto: 'Entra agua muy cargada: las naves se llenan rápido', atencion: true };
 }
 
-/** Lodo que llegó al embalse y espera a las bombas: "350 m³ de lodo por bombear". */
+/** Finos asentados en el embalse que esperan a las bombas: "350 m³ de lodo fino por bombear". */
 export function textoEmbalse(m3: number): string {
   if (!valido(m3)) return 'Sin dato de lodo';
-  return m3 < 1 ? 'Sin lodo por bombear' : `${formatoNumero(m3)} m³ de lodo por bombear`;
+  return m3 < 1 ? 'Sin lodo fino por bombear' : `${formatoNumero(m3)} m³ de lodo fino por bombear`;
 }
 
 /** Estado de una bomba, corto: para su rótulo bajo el ícono. */

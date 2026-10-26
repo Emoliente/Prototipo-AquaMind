@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowDownToLine, Bot, ChevronDown, CircleStop, Fan, ListChecks, X } from 'lucide-react';
+import { ArrowDownToLine, Bot, ChevronDown, CircleStop, ListChecks, Waves, X } from 'lucide-react';
 import type { EstadoPlanta } from '@/data/DataSource';
 import { cn } from '@/lib/cn';
 import { formatoDuracion, formatoHora, formatoNumero } from '@/lib/format';
@@ -20,7 +20,8 @@ const MIN = 60_000;
 
 /**
  * La tarjeta que responde "¿hay que purgar?". Sigue el flujo completo:
- * recomendación → purga en curso → volumen purgado y plan de bombeo → bombeo en curso.
+ * recomendación → purga en curso → volumen purgado (va a la quebrada). Si las bombas del
+ * embalse están en marcha, muestra el bombeo en curso.
  */
 export function TarjetaRecomendacion({ planta, className }: { planta: EstadoPlanta; className?: string }) {
   const purga = planta.purgas[0];
@@ -35,7 +36,7 @@ export function TarjetaRecomendacion({ planta, className }: { planta: EstadoPlan
   } else if (planta.bombeo) {
     clave = 'bombeo';
     contenido = <BombeoEnCurso planta={planta} />;
-  } else if (recienTerminada && planta.quebradaM3 > 1) {
+  } else if (recienTerminada) {
     clave = `resultado-${ultima!.id}`;
     contenido = <ResultadoPurga planta={planta} />;
   } else {
@@ -226,9 +227,6 @@ function PurgaEnCurso({ planta }: { planta: EstadoPlanta }) {
 
 function ResultadoPurga({ planta }: { planta: EstadoPlanta }) {
   const u = planta.ultimaPurga!;
-  const plan = planta.plan;
-  const opera = usePuede('operar');
-  const comando = useComando();
   const nave = `Nave ${u.naveId.slice(1)}`;
 
   return (
@@ -245,34 +243,13 @@ function ResultadoPurga({ planta }: { planta: EstadoPlanta }) {
       </div>
       <div className="rounded-card border border-line bg-surface-2 p-4">
         <p className="flex items-center gap-2 text-label font-semibold text-fg">
-          <Fan className="size-4 text-accent" aria-hidden /> Plan de bombeo para {formatoNumero(plan.volumenPendienteM3)} m³
+          <Waves className="size-4 text-accent" aria-hidden /> Se fue a la quebrada: no hay que bombearlo
         </p>
-        <ul className="mt-2 flex flex-col gap-1 text-label text-fg-muted">
-          {plan.asignaciones.map((a) => (
-            <li key={a.bombaId}>
-              Bomba {a.bombaId.slice(1)} · <span className="num text-fg">{formatoDuracion(a.minutos)}</span> ·{' '}
-              <span className="num text-fg">{formatoNumero(a.kwh)}</span> kWh
-            </li>
-          ))}
-          <li>
-            {plan.evitaHoraPunta ? (
-              <>Empieza a las <span className="num text-fg">{formatoHora(plan.inicioSugerido)}</span> para evitar la hora punta</>
-            ) : (
-              'Puede empezar ahora'
-            )}
-          </li>
-          <li className="font-medium text-ok">
-            Ahorro frente a 8 h fijas: <span className="num">{formatoNumero(plan.ahorroKwhVsBase)}</span> kWh
-          </li>
-        </ul>
+        <p className="mt-2 text-label text-fg-muted">
+          Las bombas del embalse trabajan aparte: sacan los finos que pasan con el agua limpia. Ahora hay{' '}
+          <span className="num text-fg">{formatoNumero(planta.embalseLodoM3)}</span> m³ de lodo fino en el embalse.
+        </p>
       </div>
-      {opera && (
-        <div className="mt-auto">
-          <Boton variante="primario" tamano="lg" icono={<Fan />} className="w-full" onClick={() => comando({ tipo: 'ejecutar_plan' })}>
-            {plan.evitaHoraPunta ? 'Bombear ahora de todas formas' : 'Iniciar bombeo'}
-          </Boton>
-        </div>
-      )}
     </>
   );
 }
@@ -281,7 +258,7 @@ function BombeoEnCurso({ planta }: { planta: EstadoPlanta }) {
   const b = planta.bombeo!;
   const enMarcha = planta.bombas.filter((x) => x.estado === 'en_marcha');
   const restante = Math.max(0, ...enMarcha.map((x) => x.minutosRestantes ?? 0));
-  const total = b.volumenM3 + planta.quebradaM3;
+  const total = b.volumenM3 + planta.embalseLodoM3;
   const progreso = total > 0 ? b.volumenM3 / total : 0;
   return (
     <>
@@ -299,7 +276,7 @@ function BombeoEnCurso({ planta }: { planta: EstadoPlanta }) {
         <div className="rounded-btn border border-line p-3">
           <dt className="text-label text-fg-muted">Evacuado</dt>
           <dd><Valor valor={b.volumenM3} unidad="m³" tamano="sm" /></dd>
-          <dd className="text-[0.75rem] text-fg-muted">quedan <span className="num text-fg">{formatoNumero(planta.quebradaM3)}</span> m³</dd>
+          <dd className="text-[0.75rem] text-fg-muted">quedan <span className="num text-fg">{formatoNumero(planta.embalseLodoM3)}</span> m³</dd>
         </div>
         <div className="rounded-btn border border-line p-3">
           <dt className="text-label text-fg-muted">Energía</dt>

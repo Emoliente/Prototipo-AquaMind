@@ -13,7 +13,7 @@ export interface OpcionesPlan {
   lineaBaseKwhDia: number;
   /** Máximo de minutos que se acepta con una sola bomba antes de sumar otra. */
   minutosObjetivo?: number;
-  /** Si es urgente (quebrada casi llena) no se espera a que pase la hora punta. */
+  /** Si es urgente (mucho lodo fino junto a las bombas) no se espera a que pase la hora punta. */
   urgente?: boolean;
 }
 

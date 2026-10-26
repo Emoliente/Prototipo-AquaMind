@@ -25,7 +25,7 @@ export interface PuntoSerie {
   sstSalidaGL: number;
   eficienciaPct: number;
   niveles: Record<NaveId, number>;
-  quebradaM3: number;
+  embalseLodoM3: number;
   energiaKwh: number;
 }
 
@@ -144,9 +144,17 @@ export interface EstadoPlanta {
 
   naves: NaveEstado[];
   bombas: BombaEstado[];
-  /** Lodo en la quebrada pendiente de evacuar (m³). */
-  quebradaM3: number;
-  quebradaCapacidadM3: number;
+  /**
+   * Lodo fino asentado en el embalse, por bombear (m³). Llega con el agua limpia: son los finos
+   * que pasaron el desarenador. La purga no llega aquí: va a la quebrada.
+   */
+  embalseLodoM3: number;
+  /** Lodo que admite la zona de las bombas antes de estorbar la succión (m³). */
+  embalseCapacidadM3: number;
+  /** Desde cuánto lodo conviene bombear (m³). */
+  embalseUmbralM3: number;
+  /** Finos que llegan ahora al embalse (m³/h). */
+  finosEmbalseM3h: number;
 
   energiaHoyKwh: number;
   energiaMesKwh: number;

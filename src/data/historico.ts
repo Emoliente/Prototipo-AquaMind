@@ -41,7 +41,7 @@ export function generarHistoria(desde: number, hasta: number, rng: Rng): Histori
   const elegir = <T,>(xs: T[]) => xs[Math.floor(rng() * xs.length)];
 
   // Purgas como en el registro de limpieza (R3) en época seca: cada nave cada 2–3 meses, de
-  // noche, de 1 a 2.5 h y unos 300–450 m³; luego el bombeo calculado.
+  // noche, de 1 a 2.5 h y unos 300–450 m³. El lodo purgado va a la quebrada: no se bombea.
   NAVES.forEach((n, i) => {
     let t = inicioDia(desde) + (4 + i * 9) * DIA;
     while (t < hasta) {
@@ -65,23 +65,33 @@ export function generarHistoria(desde: number, hasta: number, rng: Rng): Histori
         aguaM3: agua,
         detalle: `Purga asistida de ${n.nombre}: el lodo bajó de ${Math.round(nivelAntes)} a ${Math.round(nivelDespues)} cm.`,
       });
-      const minutosBombeo = Math.ceil((volumen / 220) * 60);
-      const kwh = (30 * minutosBombeo) / 60;
-      const finBombeo = inicio + (duracion + 45 + minutosBombeo) * MIN;
-      eventos.push({
-        t: finBombeo,
-        tipo: 'bombeo',
-        usuarioId: tecnico,
-        duracionMin: minutosBombeo,
-        volumenM3: volumen,
-        kwh,
-        detalle: `Bombeo con Bomba 2: ${Math.round(volumen)} m³ evacuados.`,
-      });
-      const dia = inicioDia(finBombeo);
-      energiaPorDia.set(dia, (energiaPorDia.get(dia) ?? 0) + kwh);
       t = inicio + entre(60, 90) * DIA;
     }
   });
+
+  // Bombeo del embalse: en seca llegan ~33 m³ de lodo fino al día; se bombea de noche, fuera de
+  // la hora punta, cada 4–5 días, con la Bomba 2 (la que menos gasta por m³).
+  for (let t = inicioDia(desde) + DIA; t < hasta; ) {
+    const dias = entre(4, 5);
+    t += dias * DIA;
+    const inicio = inicioDia(t) + (23.25 + entre(0, 0.5)) * HORA;
+    if (inicio >= hasta) break;
+    const volumen = dias * entre(28, 38);
+    const minutosBombeo = Math.ceil((volumen / 220) * 60);
+    const kwh = (30 * minutosBombeo) / 60;
+    const finBombeo = inicio + minutosBombeo * MIN;
+    eventos.push({
+      t: finBombeo,
+      tipo: 'bombeo',
+      usuarioId: elegir(TECNICOS),
+      duracionMin: minutosBombeo,
+      volumenM3: volumen,
+      kwh,
+      detalle: `Bombeo del embalse con Bomba 2: ${Math.round(volumen)} m³ de lodo fino evacuados.`,
+    });
+    const dia = inicioDia(finBombeo);
+    energiaPorDia.set(dia, (energiaPorDia.get(dia) ?? 0) + kwh);
+  }
 
   // Lecturas de miras cada 3 días por la mañana.
   for (let t = inicioDia(desde) + 2 * DIA + 8 * HORA; t < hasta; t += 3 * DIA) {

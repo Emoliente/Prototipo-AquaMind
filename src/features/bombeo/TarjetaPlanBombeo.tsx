@@ -24,13 +24,26 @@ function razones(planta: EstadoPlanta): string[] {
     r.push(`Se suma${elegidas.length > 2 ? 'n' : ''} ${elegidas.slice(1).map((b) => `la Bomba ${b.id.slice(1)}`).join(' y ')}: con una sola tardaría ${formatoDuracion(sola)}.`);
   }
   if (p.evitaHoraPunta) {
-    r.push(`Empieza a las ${formatoHora(p.inicioSugerido)} para no bombear en hora punta (${planta.config.horaPuntaInicio}:00–${planta.config.horaPuntaFin}:00); la quebrada tiene espacio.`);
-  } else if (planta.quebradaM3 > planta.quebradaCapacidadM3 * 0.75) {
-    r.push('No espera: la quebrada está casi llena.');
+    r.push(`Empieza a las ${formatoHora(p.inicioSugerido)} para no bombear en hora punta (${planta.config.horaPuntaInicio}:00–${planta.config.horaPuntaFin}:00); el embalse tiene espacio.`);
+  } else if (planta.embalseLodoM3 > planta.embalseCapacidadM3 * 0.75) {
+    r.push('No espera: hay mucho lodo fino junto a las bombas.');
   } else {
     r.push('Puede empezar ahora: no cae en hora punta.');
   }
   return r;
+}
+
+/** Por qué todavía no se bombea: poco lodo fino en el embalse, y cuándo llegará al umbral. */
+function textoEspera(planta: EstadoPlanta): string {
+  const lodo = planta.embalseLodoM3;
+  const umbral = planta.embalseUmbralM3;
+  if (lodo < 1) return 'No hay lodo fino por bombear en el embalse.';
+  const base = `Hay ${formatoNumero(lodo)} m³ de lodo fino en el embalse: conviene bombear desde ${formatoNumero(umbral)} m³.`;
+  const ritmo = planta.finosEmbalseM3h;
+  if (!(ritmo > 0.05) || lodo >= umbral) return base;
+  const minutos = ((umbral - lodo) / ritmo) * 60;
+  const cuando = minutos > 48 * 60 ? `unos ${formatoNumero(minutos / (24 * 60))} días` : formatoDuracion(minutos);
+  return `${base} Al ritmo de ahora (${formatoNumero(ritmo, ritmo < 10 ? 1 : 0)} m³/h) se llega en ${cuando}.`;
 }
 
 export function TarjetaPlanBombeo({ planta, className }: { planta: EstadoPlanta; className?: string }) {
@@ -39,7 +52,9 @@ export function TarjetaPlanBombeo({ planta, className }: { planta: EstadoPlanta;
   const p = planta.plan;
   const { tarifaSolesKwh: tarifa, lineaBaseKwhDia: base } = planta.config;
   const enCurso = !!planta.bombeo;
-  const sinLodo = !enCurso && !p.asignaciones.length;
+  // Con poco lodo fino no conviene arrancar: el plan se muestra al pasar el umbral.
+  const espera = !enCurso && !planta.planProgramado && planta.embalseLodoM3 < planta.embalseUmbralM3;
+  const sinLodo = !enCurso && (!p.asignaciones.length || espera);
 
   return (
     <Tarjeta relleno="none" className={className}>
@@ -55,7 +70,7 @@ export function TarjetaPlanBombeo({ planta, className }: { planta: EstadoPlanta;
         ) : planta.planProgramado ? (
           <EstadoChip estado="info" texto={`Programado ${formatoHora(planta.planProgramado.inicio)}`} />
         ) : sinLodo ? (
-          <EstadoChip estado="normal" texto="Sin lodo pendiente" />
+          <EstadoChip estado="normal" texto={planta.embalseLodoM3 < 1 ? 'Sin lodo pendiente' : 'Aún no hace falta'} />
         ) : (
           <EstadoChip estado="advertencia" texto="Por iniciar" />
         )}
@@ -64,7 +79,7 @@ export function TarjetaPlanBombeo({ planta, className }: { planta: EstadoPlanta;
       <div className="flex flex-col gap-6 p-5 sm:p-6">
         {sinLodo ? (
           <p className="rounded-btn border border-dashed border-line-strong p-6 text-center text-body text-fg-muted">
-            La quebrada está vacía. El plan se calcula solo al terminar una purga.
+            {textoEspera(planta)}
           </p>
         ) : enCurso ? (
           <EnCurso planta={planta} />
@@ -152,7 +167,7 @@ function EnCurso({ planta }: { planta: EstadoPlanta }) {
   const opera = usePuede('operar');
   const comando = useComando();
   const b = planta.bombeo!;
-  const total = b.volumenM3 + planta.quebradaM3;
+  const total = b.volumenM3 + planta.embalseLodoM3;
   const progreso = total > 0 ? b.volumenM3 / total : 0;
   const tarifa = planta.config.tarifaSolesKwh;
   return (
@@ -164,7 +179,7 @@ function EnCurso({ planta }: { planta: EstadoPlanta }) {
             <span className="num text-fg">{formatoNumero(total)}</span> m³
           </span>
           <span>
-            Quedan <span className="num font-semibold text-fg">{formatoNumero(planta.quebradaM3)}</span> m³
+            Quedan <span className="num font-semibold text-fg">{formatoNumero(planta.embalseLodoM3)}</span> m³
           </span>
         </div>
         <div className="h-2.5 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={Math.round(progreso * 100)} aria-valuemin={0} aria-valuemax={100}>

@@ -9,7 +9,8 @@ import { ESCALA_CM, ESTADO_BOMBA, estadoNave, fraseBombeo, frasePurga, fraseSedi
 
 /*
  * El esquema en vivo para pantallas angostas: el mismo recorrido, de arriba abajo
- * (entrada → naves → quebrada → embalse y sus bombas), sin tener que deslizar de costado.
+ * (entrada → naves → agua limpia al embalse y sus bombas; la purga se desvía a la quebrada),
+ * sin tener que deslizar de costado.
  */
 
 /** Corte pequeño de una nave: agua arriba, lodo abajo y la línea del nivel crítico. */
@@ -112,8 +113,8 @@ export function EsquemaCompacto({
   naveDestacada?: NaveId | null;
   alSeleccionarNave?: (id: NaveId) => void;
 }) {
-  const quebrada = valido(planta.quebradaM3) ? planta.quebradaM3 : 0;
-  const capacidad = valido(planta.quebradaCapacidadM3) && planta.quebradaCapacidadM3 > 0 ? planta.quebradaCapacidadM3 : 3000;
+  const lodoEmbalse = valido(planta.embalseLodoM3) ? planta.embalseLodoM3 : 0;
+  const capacidad = valido(planta.embalseCapacidadM3) && planta.embalseCapacidadM3 > 0 ? planta.embalseCapacidadM3 : 3000;
   const naves: NaveFila[] = planta.naves.map((n) => {
     const e = estadoNave(planta, n);
     return {
@@ -142,16 +143,17 @@ export function EsquemaCompacto({
       </div>
       <Flecha />
       <ul className="flex flex-col gap-2.5">
-        <Fila icono={Waves} frase={{ texto: 'La quebrada lleva el lodo purgado lejos, hasta el embalse' }} />
+        <Fila icono={Waves} frase={{ texto: 'La purga baja a la quebrada: ese lodo no llega al embalse' }} />
+        <Fila icono={Droplets} frase={{ texto: 'El agua limpia sigue al embalse con los finos que pasan' }} />
       </ul>
       <Flecha />
       <div className="flex flex-col gap-2.5 rounded-card border border-line px-3 py-3">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-body font-semibold text-fg">Embalse</span>
-          <span className="text-label text-fg-muted">{textoEmbalse(quebrada)}</span>
+          <span className="text-label text-fg-muted">{textoEmbalse(lodoEmbalse)}</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`Lodo en el embalse al ${Math.round(Math.min(1, quebrada / capacidad) * 100)} % de su capacidad`}>
-          <div className="h-full rounded-full bg-sludge transition-[width] duration-500" style={{ width: `${Math.max(2, Math.min(1, quebrada / capacidad) * 100)}%` }} />
+        <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`Lodo fino en el embalse al ${Math.round(Math.min(1, lodoEmbalse / capacidad) * 100)} % de su capacidad`}>
+          <div className="h-full rounded-full bg-sludge transition-[width] duration-500" style={{ width: `${Math.max(2, Math.min(1, lodoEmbalse / capacidad) * 100)}%` }} />
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1.5">
           {planta.bombas.map((b) => {

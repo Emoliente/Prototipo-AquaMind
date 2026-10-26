@@ -1,6 +1,6 @@
 import { memo, useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowDownToLine, ArrowRight, Droplets, Fan } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, Droplets, Fan } from 'lucide-react';
 import type { BombaEstado, EstadoPlanta } from '@/data/DataSource';
 import type { NaveId } from '@/types/dominio';
 import type { TipoEstado } from '@/components/ui/EstadoChip';
@@ -13,10 +13,11 @@ import { ESCALA_CM, ESTADO_BOMBA, estadoNave, fraseBombeo, frasePurga, fraseSedi
 
 /*
  * Esquema del desarenador: el agua entra por la izquierda, cruza las 3 naves (cada una
- * dibujada en corte: agua arriba, lodo asentado abajo) y sale limpia por arriba a la derecha.
- * El lodo baja por la compuerta de cada nave a la galería y la quebrada lo lleva hasta el
- * embalse, lejos del desarenador, donde las bombas lo evacúan. Pocos números: el dibujo cuenta
- * qué pasa; las tarjetas de abajo dan el detalle.
+ * dibujada en corte: agua arriba, lodo asentado abajo), baja por el colector y sale limpia
+ * por un canal hacia el embalse, lejos del desarenador. Lleva los finos que las naves no
+ * atrapan: se asientan en el embalse y las bombas los evacúan. La purga es otro camino: el
+ * lodo baja por la compuerta de cada nave a la galería y de ahí a la quebrada. Pocos números:
+ * el dibujo cuenta qué pasa; las tarjetas de abajo dan el detalle.
  */
 const W = 1120;
 const H = 500;
@@ -32,25 +33,29 @@ const COMPUERTA_X = NAVE_X1 + 7; // separada del borde resaltado de la nave
 const COMPUERTA_W = 22;
 const COLECTOR_X = 772;
 const COLECTOR_W = 30;
-const SALIDA_H = 30;
 const GALERIA_X = 828;
 const DERECHA_X1 = 1108;
-/** Embalse (lejos del desarenador): ahí llega el lodo y están las bombas. */
+/** Embalse (lejos del desarenador): recibe el agua limpia, ahí se asientan los finos y están las bombas. */
 const EMB_X0 = 16;
 const EMB_X1 = 620;
 const EMB_Y0 = 410;
 const EMB_Y1 = 464;
-/** La quebrada corre de la galería al embalse; el corte marca que es un tramo largo. */
-const QUEBRADA_Y = (EMB_Y0 + EMB_Y1) / 2;
-const CORTE_X = 720;
+/** Canal de agua limpia: del pie del colector al embalse; el corte marca que es un tramo largo. */
+const SALIDA_Y0 = EMB_Y0 + 8;
+const SALIDA_H = 30;
+const CORTE_X = 700;
 const BOMBAS_X = [310, 430, 550];
-const CAPACIDAD_QUEBRADA = 3000;
+const CAPACIDAD_EMBALSE = 3000;
 
-/** Quebrada a ambos lados del corte, de la galería hacia el embalse (los guiones avanzan en ese sentido). */
-const TRAMOS_QUEBRADA = [
-  `M${GALERIA_X},${QUEBRADA_Y} C${GALERIA_X - 24},${QUEBRADA_Y - 10} ${GALERIA_X - 46},${QUEBRADA_Y + 10} ${GALERIA_X - 70},${QUEBRADA_Y} S${CORTE_X + 34},${QUEBRADA_Y - 8} ${CORTE_X + 12},${QUEBRADA_Y}`,
-  `M${CORTE_X - 12},${QUEBRADA_Y} C${CORTE_X - 34},${QUEBRADA_Y + 8} ${CORTE_X - 56},${QUEBRADA_Y - 10} ${CORTE_X - 78},${QUEBRADA_Y} S${EMB_X1 + 10},${QUEBRADA_Y + 6} ${EMB_X1},${QUEBRADA_Y}`,
+/** Tramos del canal de agua limpia a cada lado del corte (x inicial y final). */
+const TRAMOS_SALIDA: [number, number][] = [
+  [EMB_X1 - 4, CORTE_X - 9],
+  [CORTE_X + 9, COLECTOR_X + COLECTOR_W],
 ];
+
+/** La quebrada recibe el lodo purgado: sale de la galería hacia la derecha y se va del dibujo. */
+const QUEBRADA_Y = SALIDA_Y0 + SALIDA_H / 2;
+const TRAMO_QUEBRADA = `M${GALERIA_X},${QUEBRADA_Y} C${GALERIA_X + 24},${QUEBRADA_Y - 10} ${GALERIA_X + 48},${QUEBRADA_Y + 10} ${GALERIA_X + 72},${QUEBRADA_Y} S${GALERIA_X + 120},${QUEBRADA_Y - 8} ${GALERIA_X + 144},${QUEBRADA_Y} S${GALERIA_X + 192},${QUEBRADA_Y + 8} ${GALERIA_X + 216},${QUEBRADA_Y} S${W - 24},${QUEBRADA_Y - 6} ${W},${QUEBRADA_Y}`;
 
 const LIENZO: Lienzo = { w: W, h: H };
 const fondoNave = (y: number) => y + NAVE_H;
@@ -90,10 +95,13 @@ const FlujosAgua = memo(function FlujosAgua() {
           <FlujoCapa key={fy} lienzo={LIENZO} x={NAVE_X0 + 12} y={fy} largo={NAVE_X1 - NAVE_X0 - 24} grosor={1.3} opacidad={0.42 - i * 0.1} duracion={2.2 + i * 0.4} />
         )),
       )}
-      <FlujoCapa lienzo={LIENZO} vertical x={COLECTOR_X + COLECTOR_W / 2} y={NAVE_Y[0] + 6} largo={fondoNave(NAVE_Y[2]) - NAVE_Y[0] - 12} grosor={1.4} opacidad={0.55} duracion={1.6} />
-      {[NAVE_Y[0] + 10, NAVE_Y[0] + 20].map((y, i) => (
-        <FlujoCapa key={y} lienzo={LIENZO} x={COLECTOR_X + COLECTOR_W} y={y} largo={W - COLECTOR_X - COLECTOR_W} grosor={1.3} opacidad={0.5 - i * 0.15} duracion={1.3 + i * 0.3} />
-      ))}
+      <FlujoCapa lienzo={LIENZO} vertical inverso x={COLECTOR_X + COLECTOR_W / 2} y={NAVE_Y[0] + 6} largo={SALIDA_Y0 + SALIDA_H - NAVE_Y[0] - 12} grosor={1.4} opacidad={0.55} duracion={1.6} />
+      {/* El agua limpia corre hacia la izquierda, al embalse */}
+      {TRAMOS_SALIDA.flatMap(([a, b]) =>
+        [SALIDA_Y0 + 10, SALIDA_Y0 + 20].map((y, i) => (
+          <FlujoCapa key={`${a}-${y}`} lienzo={LIENZO} inverso x={a + 4} y={y} largo={Math.min(b, COLECTOR_X) - a - 8} grosor={1.3} opacidad={0.5 - i * 0.15} duracion={1.3 + i * 0.3} />
+        )),
+      )}
     </div>
   );
 });
@@ -119,9 +127,9 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
   const [ref, enVista] = useEnVista<HTMLDivElement>();
   // Las animaciones que quedan en el SVG (purga, bombas) se pausan fuera de pantalla.
   const pausa = enVista ? undefined : ('paused' as const);
-  const quebrada = valido(planta.quebradaM3) ? planta.quebradaM3 : 0;
-  const capacidad = valido(planta.quebradaCapacidadM3) && planta.quebradaCapacidadM3 > 0 ? planta.quebradaCapacidadM3 : CAPACIDAD_QUEBRADA;
-  const qPct = Math.min(1, quebrada / capacidad);
+  const lodoEmbalse = valido(planta.embalseLodoM3) ? planta.embalseLodoM3 : 0;
+  const capacidad = valido(planta.embalseCapacidadM3) && planta.embalseCapacidadM3 > 0 ? planta.embalseCapacidadM3 : CAPACIDAD_EMBALSE;
+  const ePct = Math.min(1, lodoEmbalse / capacidad);
   const hayPurga = planta.purgas.length > 0;
   // Solo se dibujan las naves y bombas que tienen lugar en el esquema (3 de cada una).
   const naves = planta.naves.slice(0, NAVE_Y.length);
@@ -151,11 +159,11 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
           <line key={n.id} x1={COMPUERTA_X + COMPUERTA_W} x2={GALERIA_X} y1={yTubo(NAVE_Y[i])} y2={yTubo(NAVE_Y[i])} stroke="var(--line-strong)" strokeWidth={10} strokeLinecap="round" opacity={0.45} />
         ))}
         <line x1={GALERIA_X} x2={GALERIA_X} y1={yTubo(NAVE_Y[0])} y2={QUEBRADA_Y} stroke="var(--line-strong)" strokeWidth={10} strokeLinecap="round" opacity={0.45} />
-        {TRAMOS_QUEBRADA.map((d) => (
-          <path key={d} d={d} fill="none" stroke="var(--water)" strokeOpacity={0.55} strokeWidth={14} strokeLinecap="round" />
+        <path d={TRAMO_QUEBRADA} fill="none" stroke="var(--line-strong)" strokeOpacity={0.5} strokeWidth={14} strokeLinecap="round" />
+        <rect x={COLECTOR_X} y={NAVE_Y[0]} width={COLECTOR_W} height={SALIDA_Y0 + SALIDA_H - NAVE_Y[0]} rx={4} fill="var(--water)" fillOpacity={0.55} />
+        {TRAMOS_SALIDA.map(([a, b]) => (
+          <rect key={a} x={a} y={SALIDA_Y0} width={b - a} height={SALIDA_H} rx={4} fill={`url(#aguaH${uid})`} />
         ))}
-        <rect x={COLECTOR_X} y={NAVE_Y[0]} width={COLECTOR_W} height={fondoNave(NAVE_Y[2]) - NAVE_Y[0]} rx={4} fill="var(--water)" fillOpacity={0.55} />
-        <rect x={COLECTOR_X} y={NAVE_Y[0]} width={W - COLECTOR_X} height={SALIDA_H} rx={4} fill={`url(#aguaH${uid})`} />
         {naves.map((n, i) => (
           <g key={n.id}>
             {naveDestacada === n.id && (
@@ -173,7 +181,7 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         viewBox={`0 0 ${W} ${H}`}
         className="absolute inset-0 h-full w-full"
         role="group"
-        aria-label="Esquema del desarenador: entrada, tres naves con su lodo y compuertas de purga; la quebrada lleva el lodo al embalse, donde están las bombas"
+        aria-label="Esquema del desarenador: entrada, tres naves con su lodo y compuertas de purga que descargan a la quebrada; el agua limpia va al embalse, donde se asientan los finos y están las bombas"
       >
         <defs>
           <linearGradient id={`lodo${uid}`} x1="0" x2="0" y1="0" y2="1">
@@ -192,15 +200,19 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         <Rotulo x={0} y={ENTRADA_Y - 34} w={150} h={28}>
           <span className="text-body font-semibold text-fg">Entrada</span>
         </Rotulo>
-        <Rotulo x={COLECTOR_X + COLECTOR_W + 14} y={NAVE_Y[0] + SALIDA_H + 6} w={W - COLECTOR_X - COLECTOR_W - 14} h={26}>
-          <span className="flex items-center justify-end gap-1.5 text-label font-medium text-fg-muted">
-            Agua limpia al canal <ArrowRight className="size-4" aria-hidden />
+        {/* Canal de agua limpia: corte (el embalse queda lejos, el dibujo no está a escala) y rótulo */}
+        {[CORTE_X - 6, CORTE_X + 6].map((x) => (
+          <line key={x} x1={x - 6} x2={x + 6} y1={SALIDA_Y0 + SALIDA_H + 6} y2={SALIDA_Y0 - 6} stroke="var(--fg-subtle)" strokeWidth={2} strokeLinecap="round" />
+        ))}
+        <Rotulo x={EMB_X1 + 8} y={SALIDA_Y0 + SALIDA_H + 4} w={COLECTOR_X + COLECTOR_W - EMB_X1 - 8} h={H - SALIDA_Y0 - SALIDA_H - 4}>
+          <span className="flex items-start gap-1.5 text-[0.75rem] leading-tight font-medium text-fg-muted">
+            <ArrowLeft className="size-3.5 shrink-0" aria-hidden /> Agua limpia al embalse, con los finos que pasan
           </span>
         </Rotulo>
 
-        {/* Galería de purga y quebrada: el lodo baja de las compuertas y viaja al embalse (los cauces vacíos están en el fondo) */}
+        {/* Galería de purga y quebrada: el lodo baja de las compuertas y se va por la quebrada (el cauce vacío está en el fondo) */}
         {hayPurga &&
-          [`M${GALERIA_X},${yTubo(NAVE_Y[0])} V${QUEBRADA_Y}`, ...TRAMOS_QUEBRADA].map((d) => (
+          [`M${GALERIA_X},${yTubo(NAVE_Y[0])} V${QUEBRADA_Y}`, TRAMO_QUEBRADA].map((d) => (
             <path
               key={d}
               d={d}
@@ -213,14 +225,10 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
               style={{ animationDuration: '1s', animationPlayState: pausa }}
             />
           ))}
-        {/* Corte de la quebrada: el embalse queda lejos, el dibujo no está a escala */}
-        {[CORTE_X - 6, CORTE_X + 6].map((x) => (
-          <line key={x} x1={x - 6} x2={x + 6} y1={QUEBRADA_Y + 15} y2={QUEBRADA_Y - 15} stroke="var(--fg-subtle)" strokeWidth={2} strokeLinecap="round" />
-        ))}
-        <Rotulo x={EMB_X1 + 16} y={QUEBRADA_Y + 14} w={GALERIA_X - EMB_X1 - 4} h={H - QUEBRADA_Y - 14}>
+        <Rotulo x={GALERIA_X + 20} y={QUEBRADA_Y + 14} w={DERECHA_X1 - GALERIA_X - 20} h={H - QUEBRADA_Y - 14}>
           <div className="flex flex-col leading-tight">
             <span className="text-label font-semibold text-fg">Quebrada</span>
-            <span className="text-[0.75rem] text-fg-muted">lleva el lodo lejos, al embalse</span>
+            <span className="text-[0.75rem] text-fg-muted">recibe el lodo purgado; no va al embalse</span>
           </div>
         </Rotulo>
 
@@ -252,7 +260,7 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         {/* Ahora mismo: lo que está pasando, en frases */}
         <AhoraMismo purga={frasePurga(planta)} bombeo={fraseBombeo(planta)} sedimento={fraseSedimento(planta.sstEntradaGL)} />
 
-        {/* Embalse: el lodo que llega por la quebrada espera aquí a las bombas (borde punteado: es otro sitio) */}
+        {/* Embalse: los finos que trae el agua limpia se asientan y esperan a las bombas (borde punteado: es otro sitio) */}
         <rect x={EMB_X0} y={EMB_Y0} width={EMB_X1 - EMB_X0} height={EMB_Y1 - EMB_Y0} rx={14} fill="var(--surface-2)" stroke="var(--line-strong)" strokeWidth={2} strokeDasharray="8 6" />
         <clipPath id={`q${uid}`}>
           <rect x={EMB_X0 + 2} y={EMB_Y0 + 2} width={EMB_X1 - EMB_X0 - 4} height={EMB_Y1 - EMB_Y0 - 4} rx={12} />
@@ -263,7 +271,7 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
             width={EMB_X1 - EMB_X0}
             height={EMB_Y1 - EMB_Y0}
             initial={false}
-            animate={{ y: aPaso(EMB_Y1 - (EMB_Y1 - EMB_Y0) * Math.max(0.05, qPct)) }}
+            animate={{ y: aPaso(EMB_Y1 - (EMB_Y1 - EMB_Y0) * Math.max(0.05, ePct)) }}
             transition={{ type: 'spring', stiffness: 60, damping: 18 }}
             fill={`url(#lodo${uid})`}
             opacity={0.85}
@@ -272,7 +280,7 @@ export function EsquemaDesarenador2D({ planta, naveDestacada, alSeleccionarNave,
         <Rotulo x={EMB_X0 + 16} y={EMB_Y0 + 6} w={BOMBAS_X[0] - 28 - EMB_X0 - 16} h={EMB_Y1 - EMB_Y0 - 12}>
           <div className="flex h-full flex-col justify-center leading-tight">
             <span className="text-body font-semibold text-fg">Embalse</span>
-            <span className="text-label text-fg-muted">{textoEmbalse(quebrada)}</span>
+            <span className="text-label text-fg-muted">{textoEmbalse(lodoEmbalse)}</span>
           </div>
         </Rotulo>
         {bombas.map((b, i) => (
@@ -457,7 +465,7 @@ const AhoraMismo = memo(
       ['sedimento', sedimento],
     ];
     return (
-      <Rotulo x={GALERIA_X + 30} y={NAVE_Y[1] - 26} w={DERECHA_X1 - GALERIA_X - 30} h={fondoNave(NAVE_Y[2]) - NAVE_Y[1] + 26}>
+      <Rotulo x={GALERIA_X + 30} y={NAVE_Y[0]} w={DERECHA_X1 - GALERIA_X - 30} h={fondoNave(NAVE_Y[2]) - NAVE_Y[0]}>
         <div className="flex h-full flex-col justify-center gap-3 pl-1">
           <p className="text-label font-semibold text-fg-muted">Ahora mismo</p>
           <ul className="flex flex-col gap-3">

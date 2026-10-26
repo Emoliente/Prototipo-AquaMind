@@ -59,7 +59,7 @@ export function valorEnSerie(
   if (sensorId === 'sst_in') return mejor.sstEntradaGL;
   if (sensorId === 'sst_out') return mejor.sstSalidaGL;
   if (sensorId === 'caudal') return mejor.caudalM3s;
-  if (sensorId === 'quebrada') return mejor.quebradaM3;
+  if (sensorId === 'embalse') return mejor.embalseLodoM3;
   if (naveId) return mejor.niveles[naveId];
   return null;
 }
