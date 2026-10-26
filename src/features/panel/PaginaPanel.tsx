@@ -131,13 +131,20 @@ function Panel({ planta }: { planta: EstadoPlanta }) {
         />
         <TarjetaIndicador
           className="col-span-12 sm:col-span-6 xl:col-span-3"
-          etiqueta="Eficiencia del desarenador"
+          etiqueta="Sólidos retenidos"
           icono={<Gauge />}
           valor={planta.eficienciaPct}
           unidad="%"
           color="ok"
           tendencia={tendencias.eficiencia}
-          detalle={<>Retiene <span className="num text-fg">{formatoNumero(retenidoTH, retenidoTH < 10 ? 1 : 0)}</span> t de sedimento por hora</>}
+          detalle={
+            <>
+              <span className="block">
+                <span className="num text-fg">{formatoNumero(retenidoTH, retenidoTH < 10 ? 1 : 0)}</span> t por hora, sobre todo arena
+              </span>
+              <span className="block">Los finos siguen al canal</span>
+            </>
+          }
         />
         <TarjetaIndicador
           className="col-span-12 sm:col-span-6 xl:col-span-3"

@@ -1,6 +1,6 @@
 /**
  * Historia de operación anterior a la simulación (30 días de época seca):
- * purgas de madrugada, bombeos calculados, lecturas de miras y notas.
+ * purgas de noche, bombeos calculados, lecturas de miras y notas.
  * Sirve para que la bitácora y el informe mensual tengan datos desde el primer día.
  */
 import type { EventoBitacora, NaveId } from '@/types/dominio';
@@ -40,16 +40,17 @@ export function generarHistoria(desde: number, hasta: number, rng: Rng): Histori
   const entre = (a: number, b: number) => a + rng() * (b - a);
   const elegir = <T,>(xs: T[]) => xs[Math.floor(rng() * xs.length)];
 
-  // Purgas: cada nave cada 6–9 días, de madrugada, seguidas del bombeo calculado.
+  // Purgas como en el registro de limpieza (R3) en época seca: cada nave cada 2–3 meses, de
+  // noche, de 1 a 2.5 h y unos 300–450 m³; luego el bombeo calculado.
   NAVES.forEach((n, i) => {
-    let t = inicioDia(desde) + (1.5 + i * 2.2) * DIA;
+    let t = inicioDia(desde) + (4 + i * 9) * DIA;
     while (t < hasta) {
-      const inicio = inicioDia(t) + entre(1, 4.5) * HORA;
+      const inicio = inicioDia(t) + entre(20.5, 23.5) * HORA;
       if (inicio >= hasta) break;
       const tecnico = elegir(TECNICOS);
       const apertura = rng() < 0.8 ? 20 : 30;
-      const duracion = Math.round(entre(32, 50));
-      const nivelAntes = entre(190, 225);
+      const duracion = Math.round(entre(60, 150));
+      const nivelAntes = entre(170, 215);
       const nivelDespues = entre(45, 70);
       const volumen = volumenPurgadoM3(nivelAntes - nivelDespues, n.areaM2);
       const agua = aguaPorMinutoM3(apertura) * duracion;
@@ -78,7 +79,7 @@ export function generarHistoria(desde: number, hasta: number, rng: Rng): Histori
       });
       const dia = inicioDia(finBombeo);
       energiaPorDia.set(dia, (energiaPorDia.get(dia) ?? 0) + kwh);
-      t = inicio + entre(6, 9) * DIA;
+      t = inicio + entre(60, 90) * DIA;
     }
   });
 

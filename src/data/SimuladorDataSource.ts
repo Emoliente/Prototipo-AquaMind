@@ -257,7 +257,8 @@ export class SimuladorDataSource implements DataSource {
     const ahora = Math.floor(Date.now() / MIN) * MIN;
     const t0 = ahora - 7 * 24 * 60 * MIN;
 
-    const nivelesIniciales: Record<NaveId, number> = { N1: 168, N2: 126, N3: 160 };
+    // Época seca: el lodo sube ~0.07 cm/h, así que en la semana previa casi no cambia; la N2 ya está alta.
+    const nivelesIniciales: Record<NaveId, number> = { N1: 168, N2: 183, N3: 160 };
     this.s = {
       t: t0,
       escenario: 'seca',
@@ -273,15 +274,15 @@ export class SimuladorDataSource implements DataSource {
       sstOU: 0,
       sst: ESCENARIOS.seca.sstBase,
       tormenta: null,
-      eficiencia: 86,
-      sstSalida: 0.014,
+      eficiencia: 20,
+      sstSalida: 0.054,
       naves: NAVES.map((n) => ({
         id: n.id,
         nombre: n.nombre,
         area: n.areaM2,
         peso: n.peso,
         nivel: nivelesIniciales[n.id],
-        tasaEma: 0.3,
+        tasaEma: 0.07,
         compuertaCm: 0,
         offsetsMiras: PERFIL_MIRAS.map(() => this.r.normal() * 2.5),
         alertaNivel: 0,
@@ -316,7 +317,7 @@ export class SimuladorDataSource implements DataSource {
         [
           { id: 'caudal', nombre: 'Caudalímetro de entrada', unidad: 'm³/s', decimales: 1, rango: [0, 15], ganancia: 1.02, sesgo: 0, dias: 64 },
           { id: 'sst_in', nombre: 'Sólidos en suspensión · entrada', unidad: 'g/L', decimales: 2, rango: [0, 10], ganancia: 1.14, sesgo: 0, dias: 30 },
-          { id: 'sst_out', nombre: 'Sólidos en suspensión · salida', unidad: 'g/L', decimales: 3, rango: [0, 2], ganancia: 0.96, sesgo: 0, dias: 30 },
+          { id: 'sst_out', nombre: 'Sólidos en suspensión · salida', unidad: 'g/L', decimales: 3, rango: [0, 10], ganancia: 0.96, sesgo: 0, dias: 30 },
           { id: 'nivel_N1', nombre: 'Nivel de lodo · Nave 1', naveId: 'N1', unidad: 'cm', decimales: 0, rango: [0, 400], ganancia: 1, sesgo: 2, dias: 21 },
           { id: 'nivel_N2', nombre: 'Nivel de lodo · Nave 2', naveId: 'N2', unidad: 'cm', decimales: 0, rango: [0, 400], ganancia: 1, sesgo: 9, dias: 21 },
           { id: 'nivel_N3', nombre: 'Nivel de lodo · Nave 3', naveId: 'N3', unidad: 'cm', decimales: 0, rango: [0, 400], ganancia: 1, sesgo: -3, dias: 21 },
@@ -353,14 +354,14 @@ export class SimuladorDataSource implements DataSource {
       this.s.energiaHoy +
       this.s.energiaDiaria.filter((d) => new Date(d.dia).getMonth() === hoy0.getMonth()).reduce((a, d) => a + d.kwh, 0);
 
-    // Última semana simulada (operación de siempre: purgas de madrugada).
-    const ayer2am = new Date(ahora - 24 * 60 * MIN);
-    ayer2am.setHours(2, 0, 0, 0);
+    // Última semana simulada (operación de siempre: purgas de noche, como en el registro de limpieza).
+    const anoche = new Date(ahora - 24 * 60 * MIN);
+    anoche.setHours(21, 0, 0, 0);
     const hace5d = new Date(ahora - 5 * 24 * 60 * MIN);
-    hace5d.setHours(1, 30, 0, 0);
+    hace5d.setHours(21, 30, 0, 0);
     const historicas = [
       { t: hace5d.getTime(), nave: 'N3' as NaveId, objetivo: 70 },
-      { t: ayer2am.getTime(), nave: 'N1' as NaveId, objetivo: 60 },
+      { t: anoche.getTime(), nave: 'N1' as NaveId, objetivo: 60 },
     ];
     const tecnico = USUARIOS.tecnico.id;
     let planPendienteDesde: number | null = null;
@@ -468,7 +469,9 @@ export class SimuladorDataSource implements DataSource {
     s.sstOU += -s.sstOU * 0.05 + normal() * 0.025;
     s.sst = limitar(s.sstBase * (1 + s.sstOU), esc.sstMin, esc.sstMax);
 
-    s.eficiencia = limitar(88 - (s.caudal - 8) * 1.3 + normal() * 0.6, 72, 94);
+    // Retiene ~20 % de los sólidos: sobre todo arena; los finos (limo, arcilla) pasan. Sale del registro
+    // de purgas (~0.15 m³ de lodo por t que entra, con ~1.4 t/m³ de lodo asentado, supuesto).
+    s.eficiencia = limitar(21 - (s.caudal - 10) * 1.2 + normal() * 0.6, 12, 30);
     s.sstSalida = s.sst * (1 - s.eficiencia / 100);
   }
 

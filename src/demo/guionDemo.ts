@@ -113,7 +113,8 @@ export const PASOS: PasoDemo[] = [
     maxMs: 16000,
     listo: (p, inicio) => p.purgas.length === 0 && !!p.ultimaPurga?.fin && p.ultimaPurga.fin > inicio,
     alEntrar: ({ enviar, subir }) => {
-      enviar({ tipo: 'velocidad', velocidad: 5 });
+      // Una purga real dura ~1.5 h: a ×10 se ve entera en unos 10 s.
+      enviar({ tipo: 'velocidad', velocidad: 10 });
       subir();
     },
   },

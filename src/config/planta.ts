@@ -2,10 +2,11 @@ import type { Bomba, NaveId } from '@/types/dominio';
 
 /** Datos fijos del Desarenador Miraflores. */
 export const NAVES: { id: NaveId; nombre: string; anchoM: number; largoM: number; areaM2: number; peso: number }[] = [
-  // `peso`: parte de la carga de sedimento que recibe cada nave (la N2, central, recibe algo más).
-  { id: 'N1', nombre: 'Nave 1', anchoM: 6.5, largoM: 40, areaM2: 260, peso: 0.92 },
-  { id: 'N2', nombre: 'Nave 2', anchoM: 6.5, largoM: 40, areaM2: 260, peso: 1.22 },
-  { id: 'N3', nombre: 'Nave 3', anchoM: 6.5, largoM: 40, areaM2: 260, peso: 0.86 },
+  // `peso`: parte de la carga de sedimento que recibe cada nave frente al promedio, según el
+  // lodo purgado de cada una en marzo de 2026 (registro R3; scripts/calibrar_gemelo.py).
+  { id: 'N1', nombre: 'Nave 1', anchoM: 6.5, largoM: 40, areaM2: 260, peso: 1.02 },
+  { id: 'N2', nombre: 'Nave 2', anchoM: 6.5, largoM: 40, areaM2: 260, peso: 0.92 },
+  { id: 'N3', nombre: 'Nave 3', anchoM: 6.5, largoM: 40, areaM2: 260, peso: 1.07 },
 ];
 
 /** Miras (reglas de medición) por nave. */

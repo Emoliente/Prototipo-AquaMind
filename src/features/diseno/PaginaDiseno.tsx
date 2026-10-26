@@ -514,12 +514,12 @@ export default function PaginaDiseno() {
                 detalle="Época de lluvias · 0.1 – 7 g/L"
               />
               <TarjetaIndicador
-                etiqueta="Eficiencia del desarenador"
+                etiqueta="Sólidos retenidos"
                 icono={<Gauge />}
-                valor={86 + ruido(1.5, 2)}
+                valor={20 + ruido(1.5, 2)}
                 unidad="%"
                 color="ok"
-                tendencia={serie(85, 2, 24, 11)}
+                tendencia={serie(20, 2, 24, 11)}
                 detalle={<>Salida <span className="num text-fg">0.32</span> g/L</>}
               />
               <TarjetaIndicador

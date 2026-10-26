@@ -1,13 +1,19 @@
 /**
  * Gemelo digital simplificado del desarenador.
  * Carga de sedimento que entra = sólidos (g/L) × caudal (m³/s); se reparte entre las 3 naves.
+ *
+ * Calibrado con los registros de H2Olmos (scripts/calibrar_gemelo.py): sólidos (R2) y caudales
+ * (R4) diarios de marzo y setiembre de 2026, y 46 purgas por nave con su volumen (R3).
  */
 import type { Escenario } from '@/types/dominio';
 
-/** Subida media del lodo (cm/h) para una carga dada, antes de repartir por nave. */
+/**
+ * Subida media del lodo (cm/h) para una carga dada, antes de repartir por nave.
+ * Ajustada con 12 intervalos entre purgas de marzo de 2026 y las purgas de setiembre:
+ * ~1 cm/h un día típico de lluvias, ~0.07 cm/h en época seca, 2.5–3.5 cm/h en días de crecida.
+ */
 export function tasaSubidaBase(sstGL: number, caudalM3s: number): number {
-  // Calibrado: ~0.3 cm/h en época seca, 1–4 cm/h en lluvias, 4–8 cm/h con El Niño.
-  return 0.25 + 0.075 * sstGL * caudalM3s;
+  return 0.027 + 0.068 * sstGL * caudalM3s;
 }
 
 /** Carga de sedimento que entra al desarenador, en toneladas por hora. */
@@ -22,12 +28,13 @@ export function horasACritico(nivelCm: number, criticoCm: number, tasaCmH: numbe
 
 /**
  * Cuánto baja el lodo por minuto con la compuerta abierta (cm/min).
- * Más apertura y más carga de lodo encima → baja más rápido.
+ * Más apertura y más carga de lodo encima → baja más rápido. Con 20 cm saca ~280 m³/h, la
+ * mediana del registro de purgas: una purga típica (del 85 % al 20 % del crítico) dura ~1.5 h.
  */
 export function bajadaPorPurgaCmMin(aperturaCm: number, nivelCm: number): number {
   if (aperturaCm <= 0) return 0;
   const carga = Math.sqrt(Math.max(nivelCm, 15) / 150);
-  return 0.21 * aperturaCm * carga;
+  return 0.102 * aperturaCm * carga;
 }
 
 /** Duración estimada (min) para bajar el lodo hasta `objetivoCm`, redondeada a 5 min. */
@@ -58,12 +65,16 @@ export function aguaPorMinutoM3(aperturaCm: number): number {
 /** Cómo se nombra cada escenario dentro de una frase («en época seca», «con El Niño»). */
 export const ESCENARIO_EN_FRASE: Record<Escenario, string> = { seca: 'época seca', lluvias: 'lluvias', nino: 'El Niño' };
 
+/**
+ * Época seca y lluvias: día típico (mediana) y rango de la Bocatoma Miraflores en setiembre y
+ * marzo de 2026 (R2 y R4). El Niño no tiene registros: es un supuesto por encima de las lluvias.
+ */
 export const ESCENARIOS: Record<
   Escenario,
   { nombre: string; caudalBase: number; caudalAmp: number; sstBase: number; sstMin: number; sstMax: number; pulsos: number }
 > = {
-  seca: { nombre: 'Época seca', caudalBase: 8.2, caudalAmp: 1.2, sstBase: 0.1, sstMin: 0.03, sstMax: 0.19, pulsos: 0 },
-  lluvias: { nombre: 'Lluvias', caudalBase: 10.6, caudalAmp: 1.6, sstBase: 2.4, sstMin: 0.1, sstMax: 7, pulsos: 0.35 },
+  seca: { nombre: 'Época seca', caudalBase: 9.9, caudalAmp: 1.2, sstBase: 0.067, sstMin: 0.029, sstMax: 0.19, pulsos: 0 },
+  lluvias: { nombre: 'Lluvias', caudalBase: 11.3, caudalAmp: 1.6, sstBase: 1.21, sstMin: 0.1, sstMax: 7, pulsos: 0.35 },
   nino: { nombre: 'El Niño', caudalBase: 12.6, caudalAmp: 0.8, sstBase: 4.6, sstMin: 1.5, sstMax: 7, pulsos: 0.5 },
 };
 
